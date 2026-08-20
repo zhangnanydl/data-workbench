@@ -20,3 +20,4 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - Configuration intended for non-technical users uses visual rule editors instead of requiring JSON syntax; saved legacy JSON remains backward compatible.
 - Flow connections use arrowheads to make the data direction explicit; running-flow arrows follow the active blue animation color.
 - EVTX event filtering offers common security event IDs as checkboxes and retains a custom-ID entry for competition-specific evidence.
+- The module library prioritizes fast search and compact visual scanning: its header, search, and type filters stay fixed; processing modules use balanced secondary categories; and only expanded lists render.

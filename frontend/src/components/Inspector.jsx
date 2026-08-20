@@ -12,6 +12,16 @@ const AGGREGATE_OPERATIONS = [
   ["count", "行数"], ["count_non_null", "非空计数"], ["count_distinct", "去重计数"],
   ["sum", "求和"], ["mean", "平均值"], ["median", "中位数"], ["max", "最大值"], ["min", "最小值"], ["first", "第一条"], ["last", "最后一条"],
 ];
+const VALIDATION_RULES = [
+  ["not_null", "不能为空"], ["numeric", "必须是数值"], ["integer", "必须是整数"],
+  ["min", "不小于"], ["max", "不大于"], ["regex", "匹配正则"],
+  ["allowed", "属于指定值"], ["unique", "不能重复"],
+];
+const CONDITION_OPERATIONS = [
+  ["equals", "等于"], ["not_equals", "不等于"], ["contains", "包含"], ["not_contains", "不包含"],
+  ["greater", "大于"], ["greater_equal", "大于等于"], ["less", "小于"], ["less_equal", "小于等于"],
+  ["regex", "匹配正则"], ["is_null", "为空"], ["not_null", "非空"],
+];
 
 function maskSample(value, keepStart, keepEnd, maskCharacter) {
   const start = Math.max(0, Number(keepStart) || 0);
@@ -66,6 +76,46 @@ export function Inspector({ node, plugin, columns, onConfigChange, onDelete, onP
     if (plugin.id === "output.mysql") {
       if (["database", "table"].includes(field.key)) return mysqlTargetMode === "existing";
       if (["database_manual", "table_manual"].includes(field.key)) return mysqlTargetMode === "manual";
+    }
+    if (plugin.id === "transform.calculated_column") {
+      const operation = valueFor({ key: "operation", default: "copy" });
+      if (field.key === "source_field") return operation !== "constant";
+      if (["second_field", "separator"].includes(field.key)) return operation === "concat";
+      if (field.key === "constant") return operation === "constant";
+    }
+    if (plugin.id === "transform.numeric_calculation") {
+      const operation = valueFor({ key: "operation", default: "add" });
+      const operandMode = valueFor({ key: "operand_mode", default: "constant" });
+      if (field.key === "operand_mode") return !["abs", "sqrt", "log", "round"].includes(operation);
+      if (field.key === "operand") return operation === "round" || (!["abs", "sqrt", "log"].includes(operation) && operandMode === "constant");
+      if (field.key === "operand_field") return !["abs", "sqrt", "log", "round"].includes(operation) && operandMode === "field";
+    }
+    if (plugin.id === "transform.conditional_branch" && field.key === "value") {
+      return !["is_null", "not_null"].includes(valueFor({ key: "operator", default: "equals" }));
+    }
+    if (plugin.id === "transform.window_statistics") {
+      const operation = valueFor({ key: "operation", default: "row_number" });
+      if (field.key === "value_field") return !["row_number", "rank", "dense_rank"].includes(operation);
+      if (field.key === "window_size") return ["moving_mean", "lag", "lead"].includes(operation);
+    }
+    if (plugin.id === "transform.datetime_calculation") {
+      const operation = valueFor({ key: "operation", default: "add_days" });
+      if (field.key === "second_field") return ["difference_days", "difference_hours"].includes(operation);
+      if (field.key === "amount") return ["add_days", "add_hours"].includes(operation);
+      if (field.key === "input_format") return operation !== "from_timestamp";
+      if (field.key === "output_format") return operation === "format";
+    }
+    if (plugin.id === "transform.batch_fields") {
+      const operation = valueFor({ key: "operation", default: "trim" });
+      if (field.key === "value") return ["fill_null", "replace", "prefix", "suffix"].includes(operation);
+      if (field.key === "replacement") return operation === "replace";
+    }
+    if (plugin.id === "transform.row_number" && field.key === "direction") return Boolean(valueFor({ key: "order_by", default: "" }));
+    if (plugin.id === "transform.sampling") {
+      const mode = valueFor({ key: "mode", default: "count" });
+      if (field.key === "count") return mode !== "fraction";
+      if (field.key === "fraction") return mode === "fraction";
+      if (field.key === "seed") return ["count", "fraction"].includes(mode);
     }
     return true;
   };
@@ -180,6 +230,46 @@ export function Inspector({ node, plugin, columns, onConfigChange, onDelete, onP
         <button className="add-aggregate-rule" type="button" onClick={() => onConfigChange(field.key, [...rules, { operation: "mean", field: "", output_name: `统计${rules.length + 1}` }])}><Plus size={14} />添加统计项</button>
       </div>;
     }
+    if (field.field_type === "validation_rules") {
+      const rules = Array.isArray(value) && value.length ? value : [{ field: "", rule: "not_null", value: "", message: "不能为空" }];
+      const updateRule = (index, key, nextValue) => onConfigChange(field.key, rules.map((rule, itemIndex) => itemIndex === index ? { ...rule, [key]: nextValue } : rule));
+      return <div className="aggregate-rules-editor validation-rules-editor">
+        {rules.map((rule, index) => {
+          const needsValue = ["min", "max", "regex", "allowed"].includes(rule.rule);
+          return <section className="aggregate-rule" key={index}>
+            <header><strong>规则 {index + 1}</strong><button type="button" onClick={() => onConfigChange(field.key, rules.filter((_, itemIndex) => itemIndex !== index))} disabled={rules.length <= 1} aria-label={`删除校验规则 ${index + 1}`}><Trash size={13} /></button></header>
+            <div className="aggregate-rule-fields">
+              <label><span>校验字段</span><select value={rule.field || ""} disabled={!columns.length} onChange={(event) => updateRule(index, "field", event.target.value)}><option value="">{columns.length ? "请选择字段" : "正在读取上游字段…"}</option>{columns.map((column) => <option value={column.key} key={column.key}>{column.label}</option>)}</select></label>
+              <label><span>校验方式</span><select value={rule.rule || "not_null"} onChange={(event) => updateRule(index, "rule", event.target.value)}>{VALIDATION_RULES.map(([ruleValue, label]) => <option value={ruleValue} key={ruleValue}>{label}</option>)}</select></label>
+              {needsValue ? <label><span>{rule.rule === "allowed" ? "允许值（逗号分隔）" : "规则参数"}</span><input value={rule.value ?? ""} onChange={(event) => updateRule(index, "value", event.target.value)} placeholder={rule.rule === "regex" ? "例如 ^[A-Z]+$" : "请输入"} /></label> : null}
+              <label className="aggregate-output-name"><span>失败提示</span><input value={rule.message || ""} onChange={(event) => updateRule(index, "message", event.target.value)} placeholder="例如：手机号格式错误" /></label>
+            </div>
+          </section>;
+        })}
+        <button className="add-aggregate-rule" type="button" onClick={() => onConfigChange(field.key, [...rules, { field: "", rule: "not_null", value: "", message: "校验失败" }])}><Plus size={14} />添加校验规则</button>
+      </div>;
+    }
+    if (["condition_rules", "case_rules"].includes(field.field_type)) {
+      const isCase = field.field_type === "case_rules";
+      const emptyRule = { field: "", operator: "equals", value: "", ...(isCase ? { result: "" } : {}) };
+      const rules = Array.isArray(value) && value.length ? value : [emptyRule];
+      const updateRule = (index, key, nextValue) => onConfigChange(field.key, rules.map((rule, itemIndex) => itemIndex === index ? { ...rule, [key]: nextValue } : rule));
+      return <div className="aggregate-rules-editor condition-rules-editor">
+        {rules.map((rule, index) => {
+          const needsValue = !["is_null", "not_null"].includes(rule.operator);
+          return <section className="aggregate-rule" key={index}>
+            <header><strong>{isCase ? `条件 ${index + 1}` : `筛选条件 ${index + 1}`}</strong><button type="button" onClick={() => onConfigChange(field.key, rules.filter((_, itemIndex) => itemIndex !== index))} disabled={rules.length <= 1} aria-label={`删除条件 ${index + 1}`}><Trash size={13} /></button></header>
+            <div className="aggregate-rule-fields">
+              <label><span>字段</span><select value={rule.field || ""} disabled={!columns.length} onChange={(event) => updateRule(index, "field", event.target.value)}><option value="">{columns.length ? "请选择字段" : "正在读取上游字段…"}</option>{columns.map((column) => <option value={column.key} key={column.key}>{column.label}</option>)}</select></label>
+              <label><span>比较方式</span><select value={rule.operator || "equals"} onChange={(event) => updateRule(index, "operator", event.target.value)}>{CONDITION_OPERATIONS.map(([operation, label]) => <option value={operation} key={operation}>{label}</option>)}</select></label>
+              {needsValue ? <label><span>比较值</span><input value={rule.value ?? ""} onChange={(event) => updateRule(index, "value", event.target.value)} placeholder="请输入比较值" /></label> : null}
+              {isCase ? <label className="aggregate-output-name"><span>满足时结果</span><input value={rule.result ?? ""} onChange={(event) => updateRule(index, "result", event.target.value)} placeholder="例如：高风险" /></label> : null}
+            </div>
+          </section>;
+        })}
+        <button className="add-aggregate-rule" type="button" onClick={() => onConfigChange(field.key, [...rules, emptyRule])}><Plus size={14} />{isCase ? "添加条件结果" : "添加筛选条件"}</button>
+      </div>;
+    }
     if (field.field_type === "select") {
       return <select value={value} onChange={(event) => onConfigChange(field.key, event.target.value)}>{(field.options || []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>;
     }
@@ -205,13 +295,13 @@ export function Inspector({ node, plugin, columns, onConfigChange, onDelete, onP
         <span className="status-pill"><CheckCircle size={14} weight="fill" />配置有效</span>
       </div>
       <p className="inspector__description">{plugin.description}</p>
-      {plugin.config_fields.some((field) => ["column", "columns"].includes(field.field_type)) ? <div className="auto-fields-note"><CheckCircle size={14} weight="fill" />已自动读取上游数据的 {columns.length} 个字段</div> : null}
+      {plugin.config_fields.some((field) => ["column", "columns", "validation_rules", "condition_rules", "case_rules"].includes(field.field_type)) ? <div className="auto-fields-note"><CheckCircle size={14} weight="fill" />已自动读取上游数据的 {columns.length} 个字段</div> : null}
       <div className="form-stack">
         {plugin.config_fields.filter(showField).map((field) => (
           <Fragment key={field.key}>
             {["input.mysql", "output.mysql"].includes(plugin.id) && mysqlTargetMode === "existing" && field.key === "database" ? <div className="mysql-connect-panel"><button onClick={loadMysqlDatabases} disabled={mysqlLoading || !valueFor({ key: "username" }) || !valueFor({ key: "password" })}>{mysqlLoading ? <ArrowClockwise className="is-spinning" size={15} /> : <Database size={15} />}{mysqlLoading ? "正在读取…" : "连接并读取数据库"}</button>{mysqlMessage ? <span className={mysqlMessage.ok ? "is-ok" : "is-error"}>{mysqlMessage.ok ? <CheckCircle size={13} weight="fill" /> : <WarningCircle size={13} />}{mysqlMessage.text}</span> : <small>填写连接信息后读取已有数据库和表</small>}</div> : null}
             {plugin.id === "output.mysql" && mysqlTargetMode === "manual" && field.key === "database_manual" ? <div className="mysql-create-note"><Database size={15} /><span><strong>自动创建模式</strong><small>数据库不存在时创建数据库，表不存在时根据上游字段创建表。</small></span></div> : null}
-            {["aggregate_rules", "value_map", "event_id_selector", "option_selector"].includes(field.field_type) ? <div className="form-field">
+            {["aggregate_rules", "validation_rules", "condition_rules", "case_rules", "value_map", "event_id_selector", "option_selector"].includes(field.field_type) ? <div className="form-field">
               <span>{field.label}{field.required ? <b>*</b> : null}</span>{renderField(field)}{field.help_text ? <small>{field.help_text}</small> : null}
             </div> : <label className="form-field">
               <span>{field.label}{field.required ? <b>*</b> : null}</span>{renderField(field)}{field.help_text ? <small>{field.help_text}</small> : null}

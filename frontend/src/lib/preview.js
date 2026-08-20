@@ -1,5 +1,5 @@
 export function pluginNeedsUpstreamFields(plugin) {
-  return Boolean(plugin?.config_fields?.some((field) => ["column", "columns"].includes(field.field_type)));
+  return Boolean(plugin?.config_fields?.some((field) => ["column", "columns", "validation_rules", "condition_rules", "case_rules"].includes(field.field_type)));
 }
 
 export function upstreamSchemaKey(pipeline, targetNodeId) {
