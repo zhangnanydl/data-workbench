@@ -3,7 +3,10 @@ const DEFAULTS = {
   startY: 72,
   horizontalSpacing: 220,
   verticalSpacing: 158,
+  nodeHeight: 106,
 };
+
+const nodeHeight = (node, fallback) => Number(node.measured?.height || node.height || fallback);
 
 export function layoutPipelineNodes(nodes, edges, options = {}) {
   if (!nodes.length) return [];
@@ -42,13 +45,18 @@ export function layoutPipelineNodes(nodes, edges, options = {}) {
     layers.get(layer).push(node.id);
   }
 
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const positions = new Map();
   for (const [layer, nodeIds] of layers) {
     const offset = ((nodeIds.length - 1) * settings.verticalSpacing) / 2;
-    nodeIds.forEach((id, index) => positions.set(id, {
-      x: settings.startX + layer * settings.horizontalSpacing,
-      y: settings.startY + index * settings.verticalSpacing - offset,
-    }));
+    const layerCenterY = settings.startY + settings.nodeHeight / 2;
+    nodeIds.forEach((id, index) => {
+      const height = nodeHeight(nodeById.get(id), settings.nodeHeight);
+      positions.set(id, {
+        x: settings.startX + layer * settings.horizontalSpacing,
+        y: layerCenterY + index * settings.verticalSpacing - offset - height / 2,
+      });
+    });
   }
   return nodes.map((node) => ({ ...node, position: positions.get(node.id) }));
 }

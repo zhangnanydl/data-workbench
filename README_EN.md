@@ -12,6 +12,16 @@
 
 [简体中文](README.md) · [Architecture](docs/ARCHITECTURE.md) · [Plugin development](docs/PLUGIN_DEVELOPMENT.md) · [Contributing](CONTRIBUTING.md)
 
+## Screenshots
+
+### Visual pipeline and live data preview
+
+![Data Workbench visual pipeline](docs/screenshots/workbench-overview.png)
+
+### Full-run progress and animated data flow
+
+![Data Workbench processing progress](docs/screenshots/processing-progress.png)
+
 ## Highlights
 
 - Compose input, transform, and output nodes on a visual DAG canvas.
@@ -21,6 +31,7 @@
 - Use 30 built-in transforms, including filters, mapping, splitting, aggregation, masking, Base/URL/Hex codecs, AES, XOR/Caesar analysis, TCP reassembly, protocol extraction, and flag scanning.
 - Export full results to Excel/CSV/TXT, JSON/JSONL, SQLite, MySQL, or a complete PCAP index export.
 - Keep large previews responsive with sampling while formal runs continue to process the complete source.
+- Show an obvious bottom-of-canvas activity bar for preview loading and formal runs, including percentage, rows, node position, and elapsed time.
 - Add external Python plugins without modifying the execution engine or frontend.
 
 The project currently ships **44 built-in nodes**: 9 inputs, 30 transforms, and 5 outputs.

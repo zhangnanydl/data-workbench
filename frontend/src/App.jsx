@@ -526,7 +526,7 @@ function Workbench() {
         </header>
 
         <div className="canvas-and-inspector">
-          <div className={`flow-canvas ${runState === "running" ? "is-running" : ""}`} ref={reactFlowWrapper}>
+          <div className={`flow-canvas ${runState === "running" ? "is-running" : ""} ${previewLoading || runProgress ? "has-activity" : ""} ${runProgress ? "has-run-progress" : ""}`} ref={reactFlowWrapper}>
             <ReactFlow
               nodes={nodes}
               edges={flowEdges}
@@ -557,7 +557,7 @@ function Workbench() {
               <div className="canvas-hint">拖拽模块到画布开始处理</div>
               <button className="canvas-expand" onClick={() => reactFlow.fitView({ padding: 0.12, duration: 300 })}><ArrowsOutSimple size={16} />适应画布</button>
             </ReactFlow>
-            <RunProgress progress={runProgress} />
+            <RunProgress progress={runProgress} previewLoading={previewLoading} previewLabel={selectedPlugin?.name} />
           </div>
           <Inspector
             node={selectedNode}
