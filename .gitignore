@@ -1,0 +1,55 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.openai/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Build and packaging
+build/
+dist/
+*.spec
+*.zip
+*.7z
+
+# Runtime state and user data
+projects/
+.cache/
+storage.json
+data-workbench-crash.log
+*.part
+处理结果.*
+
+# Local data sources and exports
+*.pcap
+*.pcapng
+*.evtx
+*.sqlite
+*.sqlite3
+*.db
+*.log
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Generated visual QA evidence from local development
+design-qa.md
+docs/design-qa-comparison.png
+docs/qa-*.png
+界面设计-模块化流程工作台.png

@@ -1,0 +1,47 @@
+name: 功能建议
+description: 建议新的数据源、处理节点或工作流改进
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: 功能区域
+      options:
+        - 数据输入
+        - 数据处理
+        - 数据输出
+        - CTF / 流量分析
+        - 大数据与性能
+        - 项目与存储
+        - 界面与易用性
+        - 插件系统
+        - 其他
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 要解决的问题
+      description: 请先描述场景和困难，不要只给出功能名称
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议方案
+      description: 说明输入、配置、输出和期望的预览/完整运行语义
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 替代方案
+      description: 目前如何绕过，以及为什么不够好
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: 使用边界
+      options:
+        - label: 该建议用于合法授权的 CTF、安全分析或数据处理场景
+          required: true

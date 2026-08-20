@@ -1,0 +1,10 @@
+polars>=1.20,<2
+pandas>=2.2,<3
+openpyxl>=3.1,<4
+SQLAlchemy>=2.0,<3
+PyMySQL>=1.1,<2
+scapy>=2.6,<3
+python-evtx>=0.8,<1
+pywebview>=5.4,<7
+pyinstaller>=6.10,<7
+cryptography>=45,<47

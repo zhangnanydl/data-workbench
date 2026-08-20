@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "data-workbench"
+version = "0.1.0"
+description = "可插拔的本地可视化数据处理工作台"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+authors = [{name = "Data Workbench Contributors"}]
+requires-python = ">=3.11"
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Win32 (MS Windows)",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Education",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: Microsoft :: Windows :: Windows 10",
+  "Operating System :: Microsoft :: Windows :: Windows 11",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Security",
+]
+dependencies = [
+  "polars>=1.20,<2",
+  "pandas>=2.2,<3",
+  "openpyxl>=3.1,<4",
+  "SQLAlchemy>=2.0,<3",
+  "PyMySQL>=1.1,<2",
+  "scapy>=2.6,<3",
+  "python-evtx>=0.8,<1",
+  "pywebview>=5.4,<7",
+  "cryptography>=45,<47",
+]
+
+[project.urls]
+Homepage = "https://github.com/zhangnanydl/data-workbench"
+Documentation = "https://github.com/zhangnanydl/data-workbench#readme"
+Issues = "https://github.com/zhangnanydl/data-workbench/issues"
+Repository = "https://github.com/zhangnanydl/data-workbench.git"
+
+[project.optional-dependencies]
+build = ["pyinstaller>=6.10,<7"]
+test = ["pytest>=8.3,<9"]
+
+[tool.pytest.ini_options]
+pythonpath = ["backend"]
+testpaths = ["backend/tests"]
+
+[tool.setuptools.packages.find]
+where = ["backend"]
