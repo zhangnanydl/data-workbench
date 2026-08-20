@@ -147,6 +147,31 @@ PLUGINS = [MyPlugin]
 - 插件 ID 一经用于项目文件就应保持稳定，显示名称可以调整。
 - 密码、Token 和比赛私有数据不得硬编码到插件源码。
 
+## 值得继续创建的插件
+
+下面按“对 CTF、安全考试和大数据处理的实际收益”排序。建议先做前五项。
+
+| 优先级 | 插件 | 类型 | 解决的问题 |
+| --- | --- | --- | --- |
+| P0 | Zeek 日志输入 | 输入 | 自动识别 `conn.log`、`dns.log`、`http.log` 等 TSV 字段和类型 |
+| P0 | Suricata EVE JSON 输入 | 输入 | 展平告警、流、DNS、HTTP、TLS 事件并统一时间/IP 字段 |
+| P0 | 按键关联 Join | 处理 | 按一个或多个字段进行 inner/left/right/full join，比按行拼接更实用 |
+| P0 | JSON 展平与路径提取 | 处理 | 展开嵌套对象/数组，按 JSONPath 或 JMESPath 提取字段 |
+| P0 | 正则命名组提取 | 处理 | 用一条或多条正则把日志文本拆成多列，并保留未匹配行 |
+| P1 | 时间标准化与时间窗口 | 处理 | 统一 Unix/ISO/本地时间，按分钟窗口或会话间隔聚合 |
+| P1 | IOC 自动提取 | 处理 | 从任意文本提取 IP、域名、URL、邮箱、Hash、CVE 并去重 |
+| P1 | 熵值与可疑 Payload 检测 | 处理 | 发现高熵密文、压缩内容、Shellcode 或异常长编码串 |
+| P1 | 压缩与封装解码 | 处理 | 支持 gzip、zlib、raw deflate、Brotli、URL-safe Base64、JWT |
+| P1 | 文件雕刻 | 处理/输出 | 根据文件头尾从 Payload 中恢复 PNG、ZIP、PDF、PE 等文件 |
+| P1 | Parquet / DuckDB | 输入/输出 | 高效保存和查询大数据中间结果，降低 CSV 的空间与解析成本 |
+| P2 | Windows 取证文件 | 输入 | 解析 Prefetch、LNK、MFT、USN Journal、注册表 Hive、浏览器历史 |
+| P2 | YARA 扫描 | 处理 | 对 Payload、文件列或恢复文件运行规则并输出命中信息 |
+| P2 | 离线威胁情报匹配 | 处理 | 用本地 IOC 库匹配 IP/域名/Hash，不依赖外部网络 |
+| P2 | STIX 2.1 / MISP 导出 | 输出 | 把 IOC 和关联信息转换为标准威胁情报格式 |
+| P2 | HTML 调查报告 | 输出 | 把统计、时间线、IOC、命中证据生成可分享的离线报告 |
+
+推荐的下一批实现顺序是：`Zeek` → `Suricata EVE` → `按键 Join` → `JSON 展平` → `正则命名组提取`。这五个模块覆盖面最大，而且可以复用现有的分页预览、字段自动读取和完整导出能力。
+
 ## 故障排查
 
 ### 模块库里看不到插件

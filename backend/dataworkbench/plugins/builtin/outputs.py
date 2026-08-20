@@ -120,7 +120,8 @@ class MySQLOutputPlugin(DataPlugin):
             ConfigField("database_manual", "新数据库名称", default="ctf_data", placeholder="不存在时自动创建"),
             ConfigField("table_manual", "新数据表名称", default="result", placeholder="不存在时根据字段自动创建"),
             ConfigField("mode", "表已存在时", "select", default="append", options=[{"label": "追加数据", "value": "append"}, {"label": "覆盖表", "value": "replace"}, {"label": "报错并停止", "value": "fail"}]),
-            ConfigField("batch_size", "每批写入行数", "number", default=1000),
+            ConfigField("batch_size", "每批写入行数（不是总数）", "number", default=1000,
+                        help_text="例如 10000 行会按 1000 行一批连续写入 10 批，最终数据不会截断"),
         ) + mysql_advanced_config_fields(ConfigField),
     )
 
@@ -156,7 +157,49 @@ class MySQLOutputPlugin(DataPlugin):
         quote_mysql_identifier(table, "数据表名称")
         engine = mysql_sqlalchemy_engine(config, database=database)
         try:
-            pd.DataFrame(frame.to_dicts()).to_sql(table, engine, if_exists=config.get("mode", "append"), index=False, chunksize=max(1, int(config.get("batch_size", 1000))), method="multi")
+            from sqlalchemy import inspect, text
+
+            mode = str(config.get("mode", "append"))
+            batch_size = max(1, int(config.get("batch_size", 1000) or 1000))
+            table_sql = quote_mysql_identifier(table, "数据表名称")
+            before_rows = 0
+            if mode == "append" and inspect(engine).has_table(table):
+                with engine.connect() as connection:
+                    before_rows = int(connection.execute(text(f"SELECT COUNT(*) FROM {table_sql}")).scalar_one())
+
+            if frame.is_empty():
+                pd.DataFrame(columns=frame.columns).to_sql(table, engine, if_exists=mode, index=False, method="multi")
+            else:
+                with engine.begin() as connection:
+                    for offset in range(0, frame.height, batch_size):
+                        batch = frame.slice(offset, batch_size)
+                        pd.DataFrame(batch.to_dicts()).to_sql(
+                            table, connection, if_exists=mode if offset == 0 else "append",
+                            index=False, chunksize=batch_size, method="multi",
+                        )
+                        callback = context.variables.get("progress_callback")
+                        if callable(callback):
+                            node_index = int(context.variables.get("current_node_index", 0))
+                            node_count = max(1, int(context.variables.get("current_node_count", 1)))
+                            written_rows = min(offset + batch.height, frame.height)
+                            callback({
+                                "status": "running", "phase": "writing",
+                                "percent": round((node_index + written_rows / frame.height) / node_count * 100, 1),
+                                "nodeIndex": node_index + 1, "nodeCount": node_count,
+                                "currentNode": context.variables.get("current_node_label", "MySQL 写入"),
+                                "processedRows": written_rows, "outputRows": written_rows,
+                                "totalRows": frame.height, "batchSize": batch_size,
+                            })
+
+            with engine.connect() as connection:
+                after_rows = int(connection.execute(text(f"SELECT COUNT(*) FROM {table_sql}")).scalar_one())
+            expected_rows = before_rows + frame.height if mode == "append" else frame.height
+            if after_rows < expected_rows or (mode != "append" and after_rows != expected_rows):
+                raise RuntimeError(f"MySQL 完整性校验失败：预计 {expected_rows} 行，实际 {after_rows} 行")
+            context.variables.setdefault("output_write_stats", {})[str(context.variables.get("current_node_id", ""))] = {
+                "writtenRows": frame.height, "batchSize": batch_size, "batchCount": (frame.height + batch_size - 1) // batch_size,
+                "beforeRows": before_rows, "afterRows": after_rows,
+            }
         finally:
             engine.dispose()
         return frame

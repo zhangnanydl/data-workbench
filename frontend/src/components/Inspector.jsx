@@ -45,7 +45,7 @@ export function Inspector({ node, plugin, columns, onConfigChange, onDelete, onP
     return node.data.config?.[field.key] ?? field.default ?? "";
   };
   const mysqlTargetMode = valueFor({ key: "target_mode", default: "existing" });
-  const mysqlAdvanced = Boolean(valueFor({ key: "advanced", default: false }));
+  const mysqlAdvanced = Boolean(valueFor({ key: "advanced", default: true }));
 
   const mysqlConfig = () => ({
     host: valueFor({ key: "host", default: "127.0.0.1" }),

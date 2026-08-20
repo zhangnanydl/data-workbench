@@ -69,17 +69,24 @@ def quote_mysql_identifier(value: Any, label: str) -> str:
 
 def mysql_advanced_config_fields(ConfigField):
     return (
-        ConfigField("advanced", "高级连接参数", "boolean", default=False),
+        ConfigField("advanced", "显示连接选项（SSL、时区等）", "boolean", default=True,
+                    help_text="默认值适合本机 MySQL；关闭只会收起选项，不会清空配置"),
         ConfigField("charset", "字符集", "select", default="utf8mb4", options=[
             {"label": "utf8mb4（推荐）", "value": "utf8mb4"}, {"label": "utf8", "value": "utf8"},
             {"label": "GBK", "value": "gbk"}, {"label": "latin1", "value": "latin1"},
         ]),
-        ConfigField("timezone", "连接时区", default="+08:00", placeholder="例如：+08:00 或 Asia/Shanghai"),
+        ConfigField("timezone", "连接时区", "select", default="+08:00", options=[
+            {"label": "+08:00（中国标准时间，默认）", "value": "+08:00"},
+            {"label": "+00:00（UTC）", "value": "+00:00"},
+            {"label": "SYSTEM（跟随 MySQL 服务器）", "value": "SYSTEM"},
+            {"label": "Asia/Shanghai（需服务器时区表）", "value": "Asia/Shanghai"},
+            {"label": "不主动设置时区", "value": ""},
+        ], help_text="建议使用数字偏移；命名时区要求 MySQL 已加载时区表"),
         ConfigField("ssl_mode", "SSL 模式", "select", default="disabled", options=[
-            {"label": "禁用 SSL（本地推荐）", "value": "disabled"},
+            {"label": "忽略/禁用 SSL（本地默认）", "value": "disabled"},
             {"label": "优先使用 SSL", "value": "preferred"},
             {"label": "必须使用 SSL", "value": "required"},
-        ]),
+        ], help_text="远程或生产数据库建议选择必须使用 SSL"),
         ConfigField("connect_timeout", "连接超时（秒）", "number", default=5),
         ConfigField("read_timeout", "读取超时（秒）", "number", default=30),
         ConfigField("write_timeout", "写入超时（秒）", "number", default=30),

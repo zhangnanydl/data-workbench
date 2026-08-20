@@ -3,7 +3,7 @@ from dataworkbench.bridge import DesktopBridge
 from dataworkbench.mysql_utils import mysql_connect_kwargs, quote_mysql_identifier
 from dataworkbench.models import ExecutionContext
 from dataworkbench.plugins.builtin.inputs import JsonInputPlugin, SQLiteInputPlugin, SecurityLogInputPlugin, _normalize_event_ids, _parse_evtx_xml
-from dataworkbench.plugins.builtin.outputs import FileOutputPlugin, JsonOutputPlugin, SQLiteOutputPlugin
+from dataworkbench.plugins.builtin.outputs import FileOutputPlugin, JsonOutputPlugin, MySQLOutputPlugin, SQLiteOutputPlugin
 import hashlib
 import json
 import sys
@@ -541,6 +541,9 @@ def test_mysql_input_exposes_simple_cascading_fields():
     assert fields["ssl_mode"]["default"] == "disabled"
     assert fields["charset"]["default"] == "utf8mb4"
     assert fields["timezone"]["default"] == "+08:00"
+    assert fields["timezone"]["field_type"] == "select"
+    assert fields["advanced"]["default"] is True
+    assert {item["value"] for item in fields["timezone"]["options"]} >= {"+08:00", "+00:00", "SYSTEM", ""}
 
 
 def test_mysql_output_supports_existing_or_auto_create_modes():
@@ -552,11 +555,49 @@ def test_mysql_output_supports_existing_or_auto_create_modes():
     assert fields["table"]["field_type"] == "mysql_table"
     assert fields["database_manual"]["default"] == "ctf_data"
     assert fields["table_manual"]["default"] == "result"
+    assert fields["ssl_mode"]["default"] == "disabled"
+    assert fields["timezone"]["default"] == "+08:00"
+    assert fields["advanced"]["default"] is True
+    assert "不是总数" in fields["batch_size"]["label"]
 
     plugin = engine.registry.get("output.mysql")
     common = {"host": "127.0.0.1", "username": "root", "password": "root"}
     assert "请选择已有数据库" in plugin.validate({**common, "target_mode": "existing"})
     assert plugin.validate({**common, "target_mode": "manual", "database_manual": "ctf", "table_manual": "flags"}) == []
+
+
+def test_mysql_output_writes_every_batch_and_reports_complete_count(tmp_path, monkeypatch):
+    from sqlalchemy import create_engine, text
+
+    database_path = tmp_path / "mysql-output-test.sqlite"
+    monkeypatch.setattr(
+        "dataworkbench.plugins.builtin.outputs.mysql_sqlalchemy_engine",
+        lambda config, database=None: create_engine(f"sqlite:///{database_path}"),
+    )
+    frame = pl.DataFrame({"id": range(1, 2_506), "value": [f"row-{index}" for index in range(1, 2_506)]})
+    progress_events = []
+    context = ExecutionContext(preview=False, variables={
+        "current_node_id": "mysql-output", "current_node_index": 1, "current_node_count": 2,
+        "current_node_label": "MySQL 写入", "progress_callback": progress_events.append,
+    })
+    result = MySQLOutputPlugin().execute([frame], {
+        "target_mode": "existing", "database": "test", "table": "result",
+        "mode": "replace", "batch_size": 1_000,
+    }, context)
+
+    engine = create_engine(f"sqlite:///{database_path}")
+    try:
+        with engine.connect() as connection:
+            count = int(connection.execute(text("SELECT COUNT(*) FROM `result`")).scalar_one())
+    finally:
+        engine.dispose()
+    assert result.height == 2_505
+    assert count == 2_505
+    assert [event["processedRows"] for event in progress_events] == [1_000, 2_000, 2_505]
+    assert context.variables["output_write_stats"]["mysql-output"] == {
+        "writtenRows": 2_505, "batchSize": 1_000, "batchCount": 3,
+        "beforeRows": 0, "afterRows": 2_505,
+    }
 
 
 def test_mysql_connection_options_are_validated_and_forwarded():
