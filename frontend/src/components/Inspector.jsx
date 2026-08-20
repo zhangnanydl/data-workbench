@@ -150,6 +150,18 @@ export function Inspector({ node, plugin, columns, onConfigChange, onDelete, onP
         <label className="custom-event-ids"><span>自定义事件ID</span><input value={customValues} onChange={(event) => onConfigChange(field.key, combineEventIds(selected.filter((eventId) => commonValues.has(eventId)), event.target.value))} placeholder="例如 1, 3, 1000" /></label>
       </div>;
     }
+    if (field.field_type === "option_selector") {
+      const selected = Array.isArray(value) ? value.map(String) : String(value || "").split(",").map((item) => item.trim()).filter(Boolean);
+      const selectedSet = new Set(selected);
+      const toggleOption = (optionValue) => onConfigChange(field.key, selectedSet.has(optionValue) ? selected.filter((item) => item !== optionValue) : [...selected, optionValue]);
+      return <div className="event-id-selector option-selector">
+        <header><span>已选择 {selected.length} 项</span><button type="button" onClick={() => onConfigChange(field.key, [])} disabled={!selected.length}>清空</button></header>
+        <div className="event-id-options"><section>{(field.options || []).map((option) => {
+          const optionValue = String(option.value);
+          return <label className={selectedSet.has(optionValue) ? "is-selected" : ""} key={optionValue}><input type="checkbox" checked={selectedSet.has(optionValue)} onChange={() => toggleOption(optionValue)} /><span>{option.label}</span></label>;
+        })}</section></div>
+      </div>;
+    }
     if (field.field_type === "aggregate_rules") {
       const rules = Array.isArray(value) && value.length ? value : [{ operation: "count", field: "", output_name: "人数" }];
       const updateRule = (index, key, nextValue) => onConfigChange(field.key, rules.map((rule, itemIndex) => itemIndex === index ? { ...rule, [key]: nextValue } : rule));
@@ -199,7 +211,7 @@ export function Inspector({ node, plugin, columns, onConfigChange, onDelete, onP
           <Fragment key={field.key}>
             {["input.mysql", "output.mysql"].includes(plugin.id) && mysqlTargetMode === "existing" && field.key === "database" ? <div className="mysql-connect-panel"><button onClick={loadMysqlDatabases} disabled={mysqlLoading || !valueFor({ key: "username" }) || !valueFor({ key: "password" })}>{mysqlLoading ? <ArrowClockwise className="is-spinning" size={15} /> : <Database size={15} />}{mysqlLoading ? "正在读取…" : "连接并读取数据库"}</button>{mysqlMessage ? <span className={mysqlMessage.ok ? "is-ok" : "is-error"}>{mysqlMessage.ok ? <CheckCircle size={13} weight="fill" /> : <WarningCircle size={13} />}{mysqlMessage.text}</span> : <small>填写连接信息后读取已有数据库和表</small>}</div> : null}
             {plugin.id === "output.mysql" && mysqlTargetMode === "manual" && field.key === "database_manual" ? <div className="mysql-create-note"><Database size={15} /><span><strong>自动创建模式</strong><small>数据库不存在时创建数据库，表不存在时根据上游字段创建表。</small></span></div> : null}
-            {["aggregate_rules", "value_map", "event_id_selector"].includes(field.field_type) ? <div className="form-field">
+            {["aggregate_rules", "value_map", "event_id_selector", "option_selector"].includes(field.field_type) ? <div className="form-field">
               <span>{field.label}{field.required ? <b>*</b> : null}</span>{renderField(field)}{field.help_text ? <small>{field.help_text}</small> : null}
             </div> : <label className="form-field">
               <span>{field.label}{field.required ? <b>*</b> : null}</span>{renderField(field)}{field.help_text ? <small>{field.help_text}</small> : null}

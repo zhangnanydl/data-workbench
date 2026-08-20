@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "data-workbench"
-version = "0.1.0"
+version = "0.2.0"
 description = "可插拔的本地可视化数据处理工作台"
 readme = "README.md"
 license = {text = "Apache-2.0"}

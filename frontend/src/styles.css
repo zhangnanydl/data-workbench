@@ -219,6 +219,7 @@ button, select, option { color: inherit; white-space: nowrap; }
 .event-id-options label.is-selected { border-color: #b9d1fb; background: #edf4ff; color: #205fca; }
 .event-id-options input { width: 14px; height: 14px; flex: none; accent-color: #2670eb; }
 .event-id-options label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
+.option-selector .event-id-options section { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .custom-event-ids { padding: 8px; border-top: 1px solid #e4e9ef; display: grid; gap: 5px; }
 .custom-event-ids > span { color: #758296; font-size: 9px; font-weight: 700; }
 .custom-event-ids input { height: 31px; font-size: 10px; }

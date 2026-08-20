@@ -34,7 +34,7 @@
 - Show an obvious bottom-of-canvas activity bar for preview loading and formal runs, including percentage, rows, node position, and elapsed time.
 - Add external Python plugins without modifying the execution engine or frontend.
 
-The project currently ships **44 built-in nodes**: 9 inputs, 30 transforms, and 5 outputs.
+The project currently ships **52 built-in nodes**: 9 inputs, 38 transforms, and 5 outputs. The latest transforms add multi-column sorting, missing-value handling, keyed joins, regex extraction, JSON flattening, timestamp features, IOC extraction, and SHA digests.
 
 ## Data correctness model
 

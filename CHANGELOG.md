@@ -4,8 +4,12 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-20
+
 ### 新增
 
+- 增加多字段排序、缺失值处理、按键关联两路数据、正则提取、JSON 展平、时间解析与拆分、IOC 指标提取和 SHA 摘要 8 个处理节点；
+- 时间字段和 IOC 类型使用直接勾选配置，模块总数增加至 52 个；
 - 预览加载和全量运行增加停止按钮；PCAP 建索引、后台预览与 MySQL 批量写入支持协作取消；
 - 画布底部增加预览加载与全量运行进度条，展示百分比、处理条数、当前输出、节点位置和耗时；
 - README 增加工作台、全量运行截图、快速上手、进度指标说明和常见问题。
@@ -51,5 +55,6 @@
 - 上游字段未传播导致列选择无法勾选；
 - 多次运行导致界面长时间未响应的问题。
 
-[Unreleased]: https://github.com/zhangnanydl/data-workbench/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/zhangnanydl/data-workbench/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/zhangnanydl/data-workbench/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/zhangnanydl/data-workbench/releases/tag/v0.1.0
