@@ -110,7 +110,7 @@
 
 ### 方式一：下载 Windows 便携版
 
-从 GitHub Releases 下载最新压缩包，解压后运行 `数据工坊.exe`。请保留 EXE 同目录的 `_internal` 文件夹；它包含运行依赖。
+当前公开预览以源码构建为准。仓库发布 Windows 便携包后，可从 GitHub Releases 下载最新压缩包，解压后运行 `数据工坊.exe`。请保留 EXE 同目录的 `_internal` 文件夹；它包含运行依赖。
 
 系统要求：
 
