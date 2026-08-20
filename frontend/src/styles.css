@@ -121,6 +121,10 @@ button, select, option { color: inherit; white-space: nowrap; }
 .run-progress > header strong { font-size: 11px; }
 .run-progress > header small { color: #7c899b; font-size: 9px; }
 .run-progress > header b { color: #1769ed; font-size: 17px; font-variant-numeric: tabular-nums; }
+.run-progress__actions { display: flex !important; align-items: center; gap: 9px !important; overflow: visible !important; }
+.run-progress__actions button { min-width: max-content; height: 27px; padding: 0 9px; border: 1px solid #f0a7a7; border-radius: 7px; display: inline-flex; align-items: center; gap: 4px; color: #bd3131; background: #fff7f7; font-size: 9px; font-weight: 700; cursor: pointer; }
+.run-progress__actions button:hover { border-color: #dc6262; background: #fff0f0; }
+.run-progress__actions button:disabled { opacity: .55; cursor: wait; }
 .run-progress__track { height: 8px; margin: 9px 0 8px; overflow: hidden; border-radius: 5px; background: #e4eaf4; box-shadow: 0 1px 2px rgba(32,63,113,.08) inset; }
 .run-progress__track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#1769ed,#5e62f5,#8b5cf6); box-shadow: 0 0 9px rgba(64,91,244,.42); transition: width .35s ease; }
 .run-progress.is-indeterminate .run-progress__track i { width: 38%; animation: progress-indeterminate 1.05s ease-in-out infinite; }
@@ -139,6 +143,9 @@ button, select, option { color: inherit; white-space: nowrap; }
 .run-progress.is-error { border-color: #f0b7c0; }
 .run-progress.is-error > header > span, .run-progress.is-error > header b, .run-progress.is-error > footer { color: #c63e54; }
 .run-progress.is-error .run-progress__track i { background: #d94b60; }
+.run-progress.is-cancelled { border-color: #cbd5e1; }
+.run-progress.is-cancelled > header > span, .run-progress.is-cancelled > header b, .run-progress.is-cancelled > footer { color: #64748b; }
+.run-progress.is-cancelled .run-progress__track i { background: #94a3b8; }
 @keyframes data-flow { to { stroke-dashoffset: -36; } }
 @keyframes progress-indeterminate { 0% { transform: translateX(-115%); } 55% { transform: translateX(105%); } 100% { transform: translateX(265%); } }
 @keyframes node-data-pulse { to { box-shadow: 0 0 0 3px color-mix(in srgb, var(--node-color) 12%, transparent), 0 7px 18px rgba(42,82,160,.12); } }

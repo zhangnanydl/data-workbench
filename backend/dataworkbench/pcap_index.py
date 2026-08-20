@@ -57,7 +57,7 @@ def _payload_details(payload: bytes) -> tuple[str, str, str, str, str, str]:
     return payload_hex, payload_ascii, method, host, path, status
 
 
-def ensure_pcap_index(source_path: str | Path, cache_dir: str | Path) -> Path:
+def ensure_pcap_index(source_path: str | Path, cache_dir: str | Path, cancel_event: Any = None) -> Path:
     source = Path(source_path).resolve()
     if not source.exists():
         raise FileNotFoundError(f"流量包不存在: {source}")
@@ -98,6 +98,8 @@ def ensure_pcap_index(source_path: str | Path, cache_dir: str | Path) -> Path:
         sessions: dict[str, list[Any]] = {}
         with PcapReader(str(source)) as packets:
             for packet_no, packet in enumerate(packets, 1):
+                if cancel_event is not None and cancel_event.is_set():
+                    raise RuntimeError("预览加载已停止")
                 ip = packet.getlayer(IP) or packet.getlayer(IPv6)
                 tcp, udp, icmp = packet.getlayer(TCP), packet.getlayer(UDP), packet.getlayer(ICMP)
                 protocol = "TCP" if tcp else "UDP" if udp else "ICMP" if icmp else getattr(packet, "name", "OTHER")
@@ -155,8 +157,17 @@ def ensure_pcap_index(source_path: str | Path, cache_dir: str | Path) -> Path:
             ("source", str(source)), ("packet_count", str(packet_count)), ("session_count", str(len(sessions))), ("complete", "1"),
         ])
         connection.commit()
+    except Exception:
+        connection.close()
+        if temporary.exists():
+            temporary.unlink()
+        raise
     finally:
         connection.close()
+    if cancel_event is not None and cancel_event.is_set():
+        if temporary.exists():
+            temporary.unlink()
+        raise RuntimeError("预览加载已停止")
     os.replace(temporary, target)
     return target
 

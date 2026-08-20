@@ -176,11 +176,22 @@ export const bridge = {
     if (desktopApi()) return desktopApi().get_pipeline_run(jobId);
     const job = mockRunJobs.get(jobId);
     if (!job) return { ok: false, error: "运行任务不存在" };
+    if (job.status === "cancelled") return { ok: true, job: { ...job, pipeline: undefined } };
     const nextPercent = Math.min(100, job.percent + 24);
     const nodeIndex = Math.min(job.nodeCount, Math.max(1, Math.ceil(nextPercent / 100 * Math.max(job.nodeCount, 1))));
     Object.assign(job, { percent: nextPercent, nodeIndex, currentNode: `处理节点 ${nodeIndex}`, sourceRows: 128542, processedRows: Math.round(128542 * nextPercent / 100), outputRows: Math.round(123876 * nextPercent / 100), elapsedSeconds: Number((job.elapsedSeconds + 0.6).toFixed(1)) });
     if (nextPercent === 100) Object.assign(job, { status: "success", phase: "complete", complete: true, finalRows: 123876, message: "全量数据处理和导出完成，结果完整", result: mockPreview(job.pipeline, job.pipeline.nodes.at(-1)?.id).data });
     return { ok: true, job: { ...job, pipeline: undefined } };
+  },
+  async cancelPipelineRun(jobId) {
+    if (desktopApi()) return desktopApi().cancel_pipeline_run(jobId);
+    const job = mockRunJobs.get(jobId);
+    if (!job) return { ok: false, error: "运行任务不存在" };
+    Object.assign(job, { status: "cancelled", phase: "cancelled", message: "任务已安全停止" });
+    return { ok: true, job: { ...job, pipeline: undefined }, message: "已发送停止请求" };
+  },
+  async cancelPreview() {
+    return desktopApi() ? desktopApi().cancel_preview() : { ok: true, message: "已停止当前加载" };
   },
   async saveProject(pipeline, name) {
     if (desktopApi()) return desktopApi().save_project(pipeline, name);

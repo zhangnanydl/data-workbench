@@ -593,11 +593,40 @@ def test_mysql_output_writes_every_batch_and_reports_complete_count(tmp_path, mo
         engine.dispose()
     assert result.height == 2_505
     assert count == 2_505
-    assert [event["processedRows"] for event in progress_events] == [1_000, 2_000, 2_505]
+    assert [event["processedRows"] for event in progress_events] == [0, 1_000, 2_000, 2_505]
+    assert [event["batchIndex"] for event in progress_events] == [0, 1, 2, 3]
+    assert progress_events[0]["detail"] == "正在连接并准备写入 2,505 行，共 3 批"
+    assert progress_events[-1]["detail"] == "已完成第 3/3 批，写入 2,505/2,505 行"
     assert context.variables["output_write_stats"]["mysql-output"] == {
         "writtenRows": 2_505, "batchSize": 1_000, "batchCount": 3,
         "beforeRows": 0, "afterRows": 2_505,
     }
+
+
+def test_background_pipeline_can_be_cancelled(tmp_path, monkeypatch):
+    bridge = DesktopBridge(tmp_path)
+
+    def wait_for_cancel(*args, execution_variables=None, **kwargs):
+        cancel_event = execution_variables["cancel_event"]
+        while not cancel_event.wait(0.01):
+            pass
+        raise RuntimeError("任务已由用户停止")
+
+    monkeypatch.setattr(bridge._engine, "execute", wait_for_cancel)
+    started = bridge.start_pipeline_run({"nodes": [], "edges": []})
+    assert started["ok"] is True
+    job_id = started["job"]["jobId"]
+    stopped = bridge.cancel_pipeline_run(job_id)
+    assert stopped["ok"] is True
+    assert stopped["job"]["status"] == "cancelling"
+    deadline = time.monotonic() + 2
+    job = stopped["job"]
+    while job["status"] != "cancelled" and time.monotonic() < deadline:
+        time.sleep(0.02)
+        job = bridge.get_pipeline_run(job_id)["job"]
+    assert job["status"] == "cancelled"
+    assert job["complete"] is False
+    bridge.close()
 
 
 def test_mysql_connection_options_are_validated_and_forwarded():

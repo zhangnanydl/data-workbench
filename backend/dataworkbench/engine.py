@@ -18,6 +18,10 @@ class PipelineValidationError(ValueError):
     pass
 
 
+class PipelineCancelledError(RuntimeError):
+    pass
+
+
 class PipelineEngine:
     def __init__(self, registry: PluginRegistry | None = None) -> None:
         self.registry = registry or PluginRegistry()
@@ -103,6 +107,9 @@ class PipelineEngine:
         source_rows = 0
         with self._lock:
             for node_index, node_id in enumerate(order):
+                cancel_event = context.variables.get("cancel_event")
+                if cancel_event is not None and cancel_event.is_set():
+                    raise PipelineCancelledError("任务已由用户停止")
                 node = node_map[node_id]
                 plugin = self.registry.get(node["pluginId"])
                 self._report_progress(progress_callback, {
@@ -132,6 +139,8 @@ class PipelineEngine:
                 context.variables["direct_parent_plugins"] = [node_map[parent_id].get("pluginId") for parent_id in parents[node_id]]
                 context.variables["direct_parent_labels"] = [node_map[parent_id].get("label") or self.registry.get(node_map[parent_id]["pluginId"]).definition.name for parent_id in parents[node_id]]
                 frame = plugin.execute(input_frames, node.get("config", {}), context)
+                if cancel_event is not None and cancel_event.is_set():
+                    raise PipelineCancelledError("任务已由用户停止")
                 if plugin.definition.kind == PluginKind.INPUT:
                     source_rows += frame.height
                 sampled = context.variables.get("sampled_sources", {}).get(node_id)

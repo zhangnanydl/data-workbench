@@ -22,6 +22,7 @@ import {
   MagicWand,
   Plus,
   Play,
+  Square,
   Trash,
   X,
 } from "@phosphor-icons/react";
@@ -102,6 +103,7 @@ function Workbench() {
   const reactFlow = useReactFlow();
   const reactFlowWrapper = useRef(null);
   const previewRequestId = useRef(0);
+  const previewGeneration = useRef(0);
   const previewInFlight = useRef(false);
   const previewQueued = useRef(false);
   const previewState = useRef(null);
@@ -113,6 +115,7 @@ function Workbench() {
   const configHistoryTimer = useRef(null);
   const configHistoryOpen = useRef(false);
   const runPollToken = useRef(0);
+  const runJobId = useRef(null);
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);
   const selectedPlugin = selectedNode ? pluginMap.get(selectedNode.data.pluginId) : null;
   const activeProject = projects.find((project) => project.id === activeProjectId);
@@ -168,6 +171,7 @@ function Workbench() {
       previewQueued.current = true;
       return;
     }
+    const generation = previewGeneration.current;
     previewInFlight.current = true;
     setPreviewLoading(true);
     try {
@@ -223,11 +227,25 @@ function Workbench() {
           setPreview(null);
           setPreviewError(result.error || "预览失败");
         }
-      } while (previewQueued.current);
+      } while (previewQueued.current && generation === previewGeneration.current);
+    } catch (error) {
+      if (generation === previewGeneration.current) setPreviewError(`预览失败：${error?.message || error}`);
     } finally {
-      previewInFlight.current = false;
-      setPreviewLoading(false);
+      if (generation === previewGeneration.current) {
+        previewInFlight.current = false;
+        setPreviewLoading(false);
+      }
     }
+  }, []);
+
+  const stopPreview = useCallback(() => {
+    previewGeneration.current += 1;
+    previewRequestId.current += 1;
+    previewQueued.current = false;
+    previewInFlight.current = false;
+    setPreviewLoading(false);
+    setToast("已停止当前加载");
+    bridge.cancelPreview().catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -454,6 +472,7 @@ function Workbench() {
       return;
     }
     const token = ++runPollToken.current;
+    runJobId.current = started.job.jobId;
     setRunProgress(started.job);
     const poll = async () => {
       if (token !== runPollToken.current) return;
@@ -467,12 +486,14 @@ function Workbench() {
       }
       const job = result.job;
       setRunProgress(job);
-      if (job.status === "queued" || job.status === "running") {
+      if (job.status === "queued" || job.status === "running" || job.status === "cancelling") {
         globalThis.setTimeout(poll, 500);
         return;
       }
+      runJobId.current = null;
       const ok = job.status === "success";
-      setRunState(ok ? "success" : "error");
+      const cancelled = job.status === "cancelled";
+      setRunState(ok ? "success" : cancelled ? "cancelled" : "error");
       setToast(job.message || job.error || "流程运行结束");
       if (ok && job.result) setPreview(job.result);
       globalThis.setTimeout(() => {
@@ -481,6 +502,14 @@ function Workbench() {
     };
     poll();
   }, [activeProjectId, edges, nodes]);
+
+  const stopRun = useCallback(async () => {
+    const jobId = runJobId.current;
+    if (!jobId) return;
+    setRunProgress((current) => ({ ...current, status: "cancelling", phase: "cancelling", message: "正在安全停止，当前数据库事务将回滚" }));
+    const result = await bridge.cancelPipelineRun(jobId);
+    setToast(result.message || result.error || "已发送停止请求");
+  }, []);
 
   const autoLayout = useCallback(() => {
     if (!nodes.length) return;
@@ -518,7 +547,7 @@ function Workbench() {
             <button className="text-button history-button" onClick={undoCanvas} disabled={!historyCount} aria-label="撤销" title="撤销上一步"><ArrowCounterClockwise size={16} />撤销</button>
             <button className="text-button clear-canvas-button" onClick={() => setClearCanvasOpen(true)} disabled={!nodes.length && !edges.length} aria-label="清空画布" title="清空画布"><Trash size={16} />清空画布</button>
             <button className="text-button" onClick={autoLayout} disabled={!activeProject}><MagicWand size={16} />自动布局</button>
-            <button className={`run-button ${runState}`} onClick={runPipeline} disabled={!activeProject || runState === "running"}><Play size={17} weight="fill" />{runState === "running" ? `${Math.round(runProgress?.percent || 0)}%` : runState === "success" ? "运行成功" : runState === "error" ? "运行失败" : "运行全部"}</button>
+            <button className={`run-button ${runState}`} onClick={runState === "running" ? stopRun : runPipeline} disabled={!activeProject || runProgress?.status === "cancelling"}>{runState === "running" ? <Square size={15} weight="fill" /> : <Play size={17} weight="fill" />}{runState === "running" ? `停止 ${Number(runProgress?.percent || 0).toFixed(1)}%` : runState === "success" ? "运行成功" : runState === "error" ? "运行失败" : runState === "cancelled" ? "已停止" : "运行全部"}</button>
             <button className="save-button" onClick={saveProject} disabled={!activeProject}><FloppyDisk size={17} />保存</button>
             <button className="icon-button" aria-label="设置" onClick={() => setSettingsOpen(true)}><GearSix size={18} /></button>
             <button className="icon-button" aria-label="更多"><DotsThree size={20} weight="bold" /></button>
@@ -557,7 +586,7 @@ function Workbench() {
               <div className="canvas-hint">拖拽模块到画布开始处理</div>
               <button className="canvas-expand" onClick={() => reactFlow.fitView({ padding: 0.12, duration: 300 })}><ArrowsOutSimple size={16} />适应画布</button>
             </ReactFlow>
-            <RunProgress progress={runProgress} previewLoading={previewLoading} previewLabel={selectedPlugin?.name} />
+            <RunProgress progress={runProgress} previewLoading={previewLoading} previewLabel={selectedPlugin?.name} onCancel={runProgress ? stopRun : stopPreview} />
           </div>
           <Inspector
             node={selectedNode}

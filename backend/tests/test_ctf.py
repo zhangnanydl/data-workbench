@@ -1,6 +1,8 @@
 import csv
+from threading import Event
 
 import polars as pl
+import pytest
 from scapy.all import DNS, DNSQR, Ether, ICMP, IP, Raw, TCP, UDP, wrpcap
 
 from dataworkbench.models import ExecutionContext
@@ -44,6 +46,16 @@ def test_pcap_disk_index_paging_sessions_and_full_export(tmp_path):
     assert export_pcap_index(index, output) == 4
     with output.open(encoding="utf-8-sig", newline="") as stream:
         assert len(list(csv.reader(stream))) == 5
+
+
+def test_pcap_index_can_be_stopped_and_removes_partial_cache(tmp_path):
+    source = tmp_path / "cancelled.pcap"
+    make_pcap(source)
+    cancel_event = Event()
+    cancel_event.set()
+    with pytest.raises(RuntimeError, match="预览加载已停止"):
+        ensure_pcap_index(source, tmp_path / "cancel-cache", cancel_event)
+    assert not list((tmp_path / "cancel-cache").glob("*.building"))
 
 
 def test_protocol_extract_session_group_and_tcp_reassembly(tmp_path):

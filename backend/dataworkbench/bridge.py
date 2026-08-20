@@ -6,12 +6,12 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
-from threading import RLock
+from threading import Event, RLock
 from typing import Any
 
 import webview
 
-from dataworkbench.engine import PipelineEngine
+from dataworkbench.engine import PipelineCancelledError, PipelineEngine
 from dataworkbench.mysql_utils import mysql_connect_kwargs, quote_mysql_identifier
 from dataworkbench.registry import PluginRegistry
 from dataworkbench.worker import execute_pipeline_job, list_mysql_databases_job, list_mysql_tables_job, worker_ready_job
@@ -34,18 +34,23 @@ class DesktopBridge:
         self._engine = PipelineEngine(self._registry)
         self._use_worker = use_worker
         self._worker: Any = None
+        self._worker_lock = RLock()
+        self._preview_lock = RLock()
+        self._active_preview_cancel: Event | None = None
         self._run_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="dataworkbench-run")
         self._run_jobs: dict[str, dict[str, Any]] = {}
+        self._run_cancel_events: dict[str, Event] = {}
         self._run_lock = RLock()
         self._window = None
 
     def _ensure_worker(self) -> Any:
-        if self._worker is None:
-            import multiprocessing
-            from concurrent.futures import ProcessPoolExecutor
+        with self._worker_lock:
+            if self._worker is None:
+                import multiprocessing
+                from concurrent.futures import ProcessPoolExecutor
 
-            self._worker = ProcessPoolExecutor(max_workers=1, mp_context=multiprocessing.get_context("spawn"))
-        return self._worker
+                self._worker = ProcessPoolExecutor(max_workers=1, mp_context=multiprocessing.get_context("spawn"))
+            return self._worker
 
     def warm_worker(self) -> None:
         if self._use_worker:
@@ -65,10 +70,30 @@ class DesktopBridge:
         return self._ensure_worker().submit(execute_pipeline_job, str(self._project_root), pipeline, preview, target_node_id, preview_limit, preview_page, execution_variables).result(timeout=timeout)
 
     def close(self) -> None:
+        with self._run_lock:
+            for cancel_event in self._run_cancel_events.values():
+                cancel_event.set()
         self._run_executor.shutdown(wait=False, cancel_futures=True)
-        if self._worker is not None:
-            self._worker.shutdown(wait=False, cancel_futures=True)
-            self._worker = None
+        self._cancel_worker()
+
+    def _cancel_worker(self) -> None:
+        with self._worker_lock:
+            worker, self._worker = self._worker, None
+        if worker is None:
+            return
+        processes = list((getattr(worker, "_processes", None) or {}).values())
+        worker.shutdown(wait=False, cancel_futures=True)
+        for process in processes:
+            if process.is_alive():
+                process.terminate()
+
+    def cancel_preview(self) -> dict[str, Any]:
+        with self._preview_lock:
+            cancel_event = self._active_preview_cancel
+        if cancel_event is not None:
+            cancel_event.set()
+        self._cancel_worker()
+        return {"ok": True, "message": "已停止当前加载"}
 
     def attach_window(self, window: Any) -> None:
         self._window = window
@@ -139,11 +164,16 @@ class DesktopBridge:
 
     def _run_pipeline_job(self, job_id: str, pipeline: dict[str, Any], assessment: dict[str, Any]) -> None:
         started = time.perf_counter()
+        with self._run_lock:
+            cancel_event = self._run_cancel_events[job_id]
 
         def report(payload: dict[str, Any]) -> None:
             with self._run_lock:
                 job = self._run_jobs.get(job_id)
                 if job is not None:
+                    if payload.get("currentNodeId") != job.get("currentNodeId") or payload.get("phase") in {"preparing", "executing"}:
+                        for key in ("processedRows", "outputRows", "finalRows", "inputRows", "totalRows", "batchIndex", "batchCount", "batchSize", "detail"):
+                            job.pop(key, None)
                     job.update(payload)
                     job["elapsedSeconds"] = round(time.perf_counter() - started, 2)
 
@@ -151,7 +181,7 @@ class DesktopBridge:
         try:
             result = self._engine.execute(
                 pipeline, preview=False, preview_limit=100, project_dir=self._project_root,
-                execution_variables={"assessment": assessment, "source_estimates": assessment.get("sources", {})}, progress_callback=report,
+                execution_variables={"assessment": assessment, "source_estimates": assessment.get("sources", {}), "cancel_event": cancel_event}, progress_callback=report,
             )
             report({
                 "status": "success", "phase": "complete", "percent": 100,
@@ -159,7 +189,13 @@ class DesktopBridge:
                 "message": "全量数据处理和导出完成，结果完整",
             })
         except Exception as exc:
-            report({"status": "error", "phase": "error", "error": str(exc), "message": f"运行失败：{exc}"})
+            if cancel_event.is_set() or isinstance(exc, PipelineCancelledError):
+                report({"status": "cancelled", "phase": "cancelled", "message": "任务已安全停止"})
+            else:
+                report({"status": "error", "phase": "error", "error": str(exc), "message": f"运行失败：{exc}"})
+        finally:
+            with self._run_lock:
+                self._run_cancel_events.pop(job_id, None)
 
     def start_pipeline_run(self, pipeline: dict[str, Any]) -> dict[str, Any]:
         try:
@@ -174,10 +210,24 @@ class DesktopBridge:
             }
             with self._run_lock:
                 self._run_jobs[job_id] = job
+                self._run_cancel_events[job_id] = Event()
             self._run_executor.submit(self._run_pipeline_job, job_id, pipeline, assessment)
             return {"ok": True, "job": dict(job), "message": "全量任务已启动"}
         except Exception as exc:
             return {"ok": False, "error": f"启动任务失败：{exc}"}
+
+    def cancel_pipeline_run(self, job_id: str) -> dict[str, Any]:
+        with self._run_lock:
+            job = self._run_jobs.get(str(job_id))
+            cancel_event = self._run_cancel_events.get(str(job_id))
+            if job is None:
+                return {"ok": False, "error": "运行任务不存在或已结束"}
+            if job.get("status") not in {"queued", "running", "cancelling"}:
+                return {"ok": True, "job": dict(job), "message": "任务已经结束"}
+            if cancel_event is not None:
+                cancel_event.set()
+            job.update({"status": "cancelling", "phase": "cancelling", "message": "正在安全停止，当前数据库事务将回滚"})
+            return {"ok": True, "job": dict(job), "message": "已发送停止请求"}
 
     def get_pipeline_run(self, job_id: str) -> dict[str, Any]:
         with self._run_lock:
@@ -208,28 +258,42 @@ class DesktopBridge:
         return self.preview_pipeline(preview_pipeline, preview_id, limit, page)
 
     def pcap_page(self, path: str, page: int = 1, page_size: int = 100, protocol: str = "") -> dict[str, Any]:
+        cancel_event = Event()
+        with self._preview_lock:
+            self._active_preview_cancel = cancel_event
         try:
             from dataworkbench.pcap_index import ensure_pcap_index, pcap_page
 
-            index_path = ensure_pcap_index(path, self._project_root / ".cache" / "pcap")
+            index_path = ensure_pcap_index(path, self._project_root / ".cache" / "pcap", cancel_event)
             result = pcap_page(index_path, page, page_size, protocol)
             payload = PipelineEngine._serialize_frame(result["frame"], {"id": "pcap-page", "pluginId": "input.pcap"}, True)
             payload["stats"].update({"rowCount": result["total"], "page": result["page"], "pageSize": result["pageSize"], "paged": True})
             return {"ok": True, "data": payload}
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
+        finally:
+            with self._preview_lock:
+                if self._active_preview_cancel is cancel_event:
+                    self._active_preview_cancel = None
 
     def pcap_sessions(self, path: str, page: int = 1, page_size: int = 100) -> dict[str, Any]:
+        cancel_event = Event()
+        with self._preview_lock:
+            self._active_preview_cancel = cancel_event
         try:
             from dataworkbench.pcap_index import ensure_pcap_index, pcap_sessions
 
-            index_path = ensure_pcap_index(path, self._project_root / ".cache" / "pcap")
+            index_path = ensure_pcap_index(path, self._project_root / ".cache" / "pcap", cancel_event)
             result = pcap_sessions(index_path, page, page_size)
             payload = PipelineEngine._serialize_frame(result["frame"], {"id": "pcap-sessions", "pluginId": "ctf.session_group"}, True)
             payload["stats"].update({"rowCount": result["total"], "page": result["page"], "pageSize": result["pageSize"], "paged": True})
             return {"ok": True, "data": payload}
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
+        finally:
+            with self._preview_lock:
+                if self._active_preview_cancel is cancel_event:
+                    self._active_preview_cancel = None
 
     def run_pipeline(self, pipeline: dict[str, Any]) -> dict[str, Any]:
         try:

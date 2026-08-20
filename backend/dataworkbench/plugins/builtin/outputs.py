@@ -162,6 +162,23 @@ class MySQLOutputPlugin(DataPlugin):
             mode = str(config.get("mode", "append"))
             batch_size = max(1, int(config.get("batch_size", 1000) or 1000))
             table_sql = quote_mysql_identifier(table, "数据表名称")
+            callback = context.variables.get("progress_callback")
+            cancel_event = context.variables.get("cancel_event")
+            node_index = int(context.variables.get("current_node_index", 0))
+            node_count = max(1, int(context.variables.get("current_node_count", 1)))
+            node_id = str(context.variables.get("current_node_id", ""))
+            node_label = str(context.variables.get("current_node_label", "MySQL 写入"))
+            batch_count = (frame.height + batch_size - 1) // batch_size
+            if callable(callback):
+                callback({
+                    "status": "running", "phase": "writing",
+                    "percent": round(node_index / node_count * 100, 1),
+                    "nodeIndex": node_index + 1, "nodeCount": node_count,
+                    "currentNodeId": node_id, "currentNode": node_label,
+                    "processedRows": 0, "outputRows": 0, "totalRows": frame.height,
+                    "batchIndex": 0, "batchCount": batch_count, "batchSize": batch_size,
+                    "detail": f"正在连接并准备写入 {frame.height:,} 行，共 {batch_count} 批",
+                })
             before_rows = 0
             if mode == "append" and inspect(engine).has_table(table):
                 with engine.connect() as connection:
@@ -171,24 +188,25 @@ class MySQLOutputPlugin(DataPlugin):
                 pd.DataFrame(columns=frame.columns).to_sql(table, engine, if_exists=mode, index=False, method="multi")
             else:
                 with engine.begin() as connection:
-                    for offset in range(0, frame.height, batch_size):
+                    for batch_index, offset in enumerate(range(0, frame.height, batch_size), 1):
+                        if cancel_event is not None and cancel_event.is_set():
+                            raise RuntimeError("任务已由用户停止，当前事务已回滚")
                         batch = frame.slice(offset, batch_size)
                         pd.DataFrame(batch.to_dicts()).to_sql(
                             table, connection, if_exists=mode if offset == 0 else "append",
                             index=False, chunksize=batch_size, method="multi",
                         )
-                        callback = context.variables.get("progress_callback")
                         if callable(callback):
-                            node_index = int(context.variables.get("current_node_index", 0))
-                            node_count = max(1, int(context.variables.get("current_node_count", 1)))
                             written_rows = min(offset + batch.height, frame.height)
                             callback({
                                 "status": "running", "phase": "writing",
                                 "percent": round((node_index + written_rows / frame.height) / node_count * 100, 1),
                                 "nodeIndex": node_index + 1, "nodeCount": node_count,
-                                "currentNode": context.variables.get("current_node_label", "MySQL 写入"),
+                                "currentNodeId": node_id, "currentNode": node_label,
                                 "processedRows": written_rows, "outputRows": written_rows,
                                 "totalRows": frame.height, "batchSize": batch_size,
+                                "batchIndex": batch_index, "batchCount": batch_count,
+                                "detail": f"已完成第 {batch_index}/{batch_count} 批，写入 {written_rows:,}/{frame.height:,} 行",
                             })
 
             with engine.connect() as connection:
