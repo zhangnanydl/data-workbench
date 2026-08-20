@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build && node scripts/prepare-sites-build.mjs",
     "preview": "vite preview",
-    "test:sites": "node --test tests/*.test.mjs"
+    "test:sites": "node --test tests/clipboard.test.mjs tests/connections.test.mjs tests/event-ids.test.mjs tests/history.test.mjs tests/layout.test.mjs tests/payload.test.mjs tests/preview.test.mjs tests/projects.test.mjs tests/sites-worker.test.mjs tests/value-map.test.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
