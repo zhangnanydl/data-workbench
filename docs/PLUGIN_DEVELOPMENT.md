@@ -2,6 +2,18 @@
 
 数据工坊使用元数据驱动的 Python 插件系统。插件定义了自己的名称、分类、配置项和执行函数；前端根据元数据自动生成模块库条目与配置面板。
 
+如果你只是安装、选择或管理外部插件，请先阅读[插件库与扩展模块](PLUGIN_LIBRARY.md)。本文面向需要编写和测试 Python 插件的开发者。
+
+## 开发环境
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[test]"
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+建议先在源码模式开发插件。确认功能和测试通过后，再运行 `build-exe.ps1` 验证便携版；需要额外第三方包的插件必须把依赖加入打包环境，不能假设目标电脑已经安装 Python。
+
 ## 最小插件
 
 创建 `plugins_external/my_plugin/plugin.py`：

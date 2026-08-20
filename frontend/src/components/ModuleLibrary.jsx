@@ -56,11 +56,13 @@ export function ModuleLibrary({ plugins, onAdd }) {
 
   return (
     <aside className="module-library">
-      <div className="section-title-row"><h2>模块库</h2><span>{plugins.length}</span></div>
-      <label className="search-box">
-        <MagnifyingGlass size={15} />
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索模块" />
-      </label>
+      <div className="module-library__header">
+        <div className="section-title-row"><h2>模块库</h2><span>{plugins.length}</span></div>
+        <label className="search-box">
+          <MagnifyingGlass size={15} />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索模块" />
+        </label>
+      </div>
       <div className="module-groups">
         {grouped.map(([group, items]) => (
           <section className="module-group" key={group}>

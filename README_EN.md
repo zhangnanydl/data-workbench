@@ -10,7 +10,7 @@
 
 > This is an early public preview. Core reading, transformation, preview, full-run, and export paths are functional, while the plugin API and project format may still change before `1.0.0`.
 
-[简体中文](README.md) · [Architecture](docs/ARCHITECTURE.md) · [Plugin development](docs/PLUGIN_DEVELOPMENT.md) · [Contributing](CONTRIBUTING.md)
+[简体中文](README.md) · [Architecture](docs/ARCHITECTURE.md) · [Plugin library](docs/PLUGIN_LIBRARY.md) · [Plugin development](docs/PLUGIN_DEVELOPMENT.md) · [Contributing](CONTRIBUTING.md)
 
 ## Screenshots
 

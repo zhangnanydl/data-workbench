@@ -11,6 +11,7 @@
 <p align="center">
   <a href="README_EN.md">English</a> ·
   <a href="docs/ARCHITECTURE.md">架构设计</a> ·
+  <a href="docs/PLUGIN_LIBRARY.md">插件库</a> ·
   <a href="docs/PLUGIN_DEVELOPMENT.md">插件开发</a> ·
   <a href="CONTRIBUTING.md">参与贡献</a>
 </p>
@@ -271,6 +272,8 @@ data-workbench/
 - **凭据处理**：数据库密码属于本地运行配置，不应提交到 Git。生产环境请使用最小权限账号，不要使用 `root`。
 
 ## 插件开发
+
+先阅读[插件库与扩展模块](docs/PLUGIN_LIBRARY.md)，了解内置/外部插件的区别、安装位置、可信来源要求和故障排查；需要编写自己的节点时，再参考[完整插件开发指南](docs/PLUGIN_DEVELOPMENT.md)。
 
 外部插件放置在：
 
