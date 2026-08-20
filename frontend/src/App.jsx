@@ -49,7 +49,7 @@ function buildPipeline(nodes, edges) {
     version: 1,
     name: "访问日志清洗_20260819",
     nodes: nodes.map((node) => ({ id: node.id, pluginId: node.data.pluginId, label: node.data.label, config: node.data.config, position: node.position })),
-    edges: edges.map(({ id, source, target }) => ({ id, source, target })),
+    edges: edges.map(({ id, source, target, sourceHandle, targetHandle }) => ({ id, source, target, sourceHandle: sourceHandle || null, targetHandle: targetHandle || null })),
   };
 }
 
@@ -59,7 +59,7 @@ function hydratePipeline(pipeline, pluginMap) {
       id: node.id,
       type: "plugin",
       position: node.position || { x: 80, y: 100 },
-      data: { pluginId: node.pluginId, label: node.label, config: node.config || {}, plugin: pluginMap.get(node.pluginId) },
+      data: { pluginId: node.pluginId, label: node.label || pluginMap.get(node.pluginId)?.name || "未命名模块", config: node.config || {}, plugin: pluginMap.get(node.pluginId) },
     })),
     edges: (pipeline.edges || []).map((edge) => ({ ...edge, type: "smoothstep", style: { stroke: "#8390a3", strokeWidth: 1.6 } })),
   };
@@ -100,6 +100,7 @@ function Workbench() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [clearCanvasOpen, setClearCanvasOpen] = useState(false);
   const [historyCount, setHistoryCount] = useState(0);
+  const [savedRevision, setSavedRevision] = useState("");
   const reactFlow = useReactFlow();
   const reactFlowWrapper = useRef(null);
   const previewRequestId = useRef(0);
@@ -119,16 +120,32 @@ function Workbench() {
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);
   const selectedPlugin = selectedNode ? pluginMap.get(selectedNode.data.pluginId) : null;
   const activeProject = projects.find((project) => project.id === activeProjectId);
+  const pipelineRevision = useMemo(() => JSON.stringify(buildPipeline(nodes, edges)), [edges, nodes]);
+  const outputPortMap = useMemo(() => {
+    const result = new Map();
+    for (const node of nodes) {
+      for (const port of node.data?.plugin?.output_ports || []) result.set(`${node.id}:${port.id}`, port);
+    }
+    return result;
+  }, [nodes]);
   const flowEdges = useMemo(() => {
     const running = runState === "running";
     const color = running ? "#3978f6" : "#8390a3";
-    return edges.map((edge) => ({
-      ...edge,
-      animated: running,
-      className: `${edge.className || ""} ${running ? "is-data-flowing" : ""}`.trim(),
-      markerEnd: { type: MarkerType.ArrowClosed, width: 15, height: 15, color },
-    }));
-  }, [edges, runState]);
+    return edges.map((edge) => {
+      const port = outputPortMap.get(`${edge.source}:${edge.sourceHandle}`);
+      const branchColor = port?.color || color;
+      return {
+        ...edge,
+        label: port?.label || edge.label,
+        labelStyle: port ? { fill: branchColor, fontSize: 9, fontWeight: 700 } : edge.labelStyle,
+        labelBgStyle: edge.sourceHandle ? { fill: "#fff", fillOpacity: 0.92 } : edge.labelBgStyle,
+        style: { ...(edge.style || {}), stroke: running ? color : branchColor },
+        animated: running,
+        className: `${edge.className || ""} ${running ? "is-data-flowing" : ""}`.trim(),
+        markerEnd: { type: MarkerType.ArrowClosed, width: 15, height: 15, color: running ? color : branchColor },
+      };
+    });
+  }, [edges, outputPortMap, runState]);
   canvasState.current = { nodes, edges, selectedNodeId };
   previewState.current = { nodes, edges, selectedNodeId, selectedPlugin, previewPage, previewPageSize, pcapMode };
 
@@ -309,7 +326,7 @@ function Workbench() {
 
   const appendConnection = useCallback((connection) => {
     if (!connection.source || !connection.target || connection.source === connection.target) return false;
-    const duplicate = canvasState.current.edges.some((edge) => edge.source === connection.source && edge.target === connection.target);
+    const duplicate = canvasState.current.edges.some((edge) => edge.source === connection.source && edge.target === connection.target && (edge.sourceHandle || null) === (connection.sourceHandle || null) && (edge.targetHandle || null) === (connection.targetHandle || null));
     if (duplicate) return false;
     recordHistory();
     setEdges((current) => {
@@ -324,7 +341,7 @@ function Workbench() {
   }, [appendConnection]);
 
   const onConnectStart = useCallback((_, params) => {
-    connectionStart.current = { nodeId: params.nodeId, handleType: params.handleType };
+    connectionStart.current = { nodeId: params.nodeId, handleId: params.handleId, handleType: params.handleType };
     connectionCompleted.current = false;
   }, []);
 
@@ -359,6 +376,7 @@ function Workbench() {
       setToast(`已自动创建项目并添加：${plugin.name}`);
       bridge.saveProject(buildPipeline([node], []), project.name).then((result) => {
         if (!result.ok) return;
+        setSavedRevision(JSON.stringify(buildPipeline([node], [])));
         setProjects((current) => current.map((item) => item.id === project.id ? { ...item, path: result.path, meta: "已自动保存" } : item));
       });
       resetHistory();
@@ -390,6 +408,12 @@ function Workbench() {
     setNodes((current) => current.map((node) => node.id === selectedNodeId ? { ...node, data: { ...node.data, config: { ...node.data.config, [key]: value } } } : node));
   }, [recordGroupedConfigHistory, selectedNodeId, setNodes]);
 
+  const renameSelectedNode = useCallback((label) => {
+    if (!selectedNodeId) return;
+    recordGroupedConfigHistory();
+    setNodes((current) => current.map((node) => node.id === selectedNodeId ? { ...node, data: { ...node.data, label } } : node));
+  }, [recordGroupedConfigHistory, selectedNodeId, setNodes]);
+
   const removeSelected = useCallback(() => {
     if (!selectedNodeId) return;
     recordHistory();
@@ -414,9 +438,23 @@ function Workbench() {
     const projectName = activeProject?.name || "未命名流程";
     setProjects((current) => current.map((project) => project.id === activeProjectId ? { ...project, pipeline, meta: "刚刚保存" } : project));
     const result = await bridge.saveProject(pipeline, projectName);
-    if (result.ok) setProjects((current) => current.map((project) => project.id === activeProjectId ? { ...project, path: result.path } : project));
+    if (result.ok) {
+      setSavedRevision(JSON.stringify(pipeline));
+      setProjects((current) => current.map((project) => project.id === activeProjectId ? { ...project, path: result.path } : project));
+    }
     setToast(result.message || (result.ok ? "项目已保存" : result.error));
   }, [activeProject?.name, activeProjectId, edges, nodes]);
+
+  useEffect(() => {
+    const handleSaveShortcut = (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        saveProject();
+      }
+    };
+    window.addEventListener("keydown", handleSaveShortcut);
+    return () => window.removeEventListener("keydown", handleSaveShortcut);
+  }, [saveProject]);
 
   const switchProject = useCallback(async (project) => {
     const currentPipeline = buildPipeline(nodes, edges);
@@ -433,6 +471,7 @@ function Workbench() {
     const hydrated = hydratePipeline(pipeline || { nodes: [], edges: [] }, pluginMap);
     setNodes(hydrated.nodes);
     setEdges(hydrated.edges);
+    setSavedRevision(JSON.stringify(buildPipeline(hydrated.nodes, hydrated.edges)));
     setActiveProjectId(project.id);
     setSelectedNodeId(hydrated.nodes.find((node) => node.data.pluginId.startsWith("transform."))?.id || hydrated.nodes[0]?.id || null);
     resetHistory();
@@ -449,6 +488,7 @@ function Workbench() {
     setActiveProjectId(project.id);
     setNodes([]);
     setEdges([]);
+    setSavedRevision(JSON.stringify(buildPipeline([], [])));
     setSelectedNodeId(null);
     setPreview(null);
     resetHistory();
@@ -541,7 +581,7 @@ function Workbench() {
             <button className="project-switch-button" aria-label="切换项目" onClick={() => setProjectSwitcherOpen(true)}>
               <span><small>当前项目</small><strong>{activeProject?.name || "选择或新建项目"}</strong></span><CaretDown size={15} />
             </button>
-            {activeProject ? <span className="saved-state"><CheckCircle size={14} weight="fill" />已保存</span> : null}
+            {activeProject ? <span className={`saved-state ${savedRevision !== pipelineRevision ? "is-dirty" : ""}`}><CheckCircle size={14} weight="fill" />{savedRevision === pipelineRevision ? "已保存" : "有未保存修改"}</span> : null}
           </div>
           <div className="topbar-actions">
             <button className="text-button history-button" onClick={undoCanvas} disabled={!historyCount} aria-label="撤销" title="撤销上一步"><ArrowCounterClockwise size={16} />撤销</button>
@@ -592,6 +632,7 @@ function Workbench() {
             node={selectedNode}
             plugin={selectedPlugin}
             columns={availableColumns}
+            onRename={renameSelectedNode}
             onConfigChange={changeConfig}
             onDelete={removeSelected}
             onPickFile={pickFile}

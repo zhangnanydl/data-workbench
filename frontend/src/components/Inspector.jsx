@@ -32,7 +32,7 @@ function maskSample(value, keepStart, keepEnd, maskCharacter) {
   return value.slice(0, start) + character.repeat(value.length - start - end) + suffix;
 }
 
-export function Inspector({ node, plugin, columns, onConfigChange, onDelete, onPickFile, livePreview, onLivePreviewChange }) {
+export function Inspector({ node, plugin, columns, onRename, onConfigChange, onDelete, onPickFile, livePreview, onLivePreviewChange }) {
   const [mysqlDatabases, setMysqlDatabases] = useState([]);
   const [mysqlTables, setMysqlTables] = useState([]);
   const [mysqlLoading, setMysqlLoading] = useState(false);
@@ -295,6 +295,23 @@ export function Inspector({ node, plugin, columns, onConfigChange, onDelete, onP
         <span className="status-pill"><CheckCircle size={14} weight="fill" />配置有效</span>
       </div>
       <p className="inspector__description">{plugin.description}</p>
+      <label className="form-field node-name-field">
+        <span>节点名称</span>
+        <input
+          value={node.data.label || ""}
+          onChange={(event) => onRename(event.target.value)}
+          onBlur={(event) => { if (!event.target.value.trim()) onRename(plugin.name); }}
+          maxLength={40}
+          placeholder={plugin.name}
+          aria-label="节点名称"
+        />
+        <small>修改画布上的显示名称，不影响节点功能和已有连线</small>
+      </label>
+      {plugin.output_ports?.length ? <div className="branch-output-guide">
+        <strong>这是一个分支节点</strong>
+        <span>从节点右侧对应出口连线，两个数据流会独立处理并完整导出。</span>
+        <div>{plugin.output_ports.map((port) => <i style={{ "--port-color": port.color }} key={port.id}><b />{port.label}数据</i>)}</div>
+      </div> : null}
       {plugin.config_fields.some((field) => ["column", "columns", "validation_rules", "condition_rules", "case_rules"].includes(field.field_type)) ? <div className="auto-fields-note"><CheckCircle size={14} weight="fill" />已自动读取上游数据的 {columns.length} 个字段</div> : null}
       <div className="form-stack">
         {plugin.config_fields.filter(showField).map((field) => (

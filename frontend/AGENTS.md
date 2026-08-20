@@ -21,3 +21,5 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - Flow connections use arrowheads to make the data direction explicit; running-flow arrows follow the active blue animation color.
 - EVTX event filtering offers common security event IDs as checkboxes and retains a custom-ID entry for competition-specific evidence.
 - The module library prioritizes fast search and compact visual scanning: its header, search, and type filters stay fixed; processing modules use balanced secondary categories; and only expanded lists render.
+- Branching transform nodes expose named, colored output handles; edge persistence must retain source/target handle IDs so each branch can feed independent full-data outputs.
+- Every canvas node has a user-editable display name. Custom names participate in undo history and persist with node configuration, position, connections, and branch handles in both local and MySQL project storage.

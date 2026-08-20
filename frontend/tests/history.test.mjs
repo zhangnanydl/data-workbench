@@ -20,3 +20,12 @@ test("history ignores duplicate snapshots and keeps its configured limit", () =>
   assert.equal(history.length, 3);
   assert.deepEqual(history.map((item) => item.nodes[0].position.x), [2, 3, 4]);
 });
+
+test("renaming a node creates an undoable history state", () => {
+  const original = createCanvasSnapshot([{ id: "a", position: { x: 0, y: 0 }, data: { label: "过滤", config: {} } }], []);
+  const renamed = createCanvasSnapshot([{ id: "a", position: { x: 0, y: 0 }, data: { label: "仅保留成功请求", config: {} } }], []);
+  const history = appendCanvasHistory(appendCanvasHistory([], original), renamed);
+  assert.equal(history.length, 2);
+  assert.equal(history[0].nodes[0].data.label, "过滤");
+  assert.equal(history[1].nodes[0].data.label, "仅保留成功请求");
+});

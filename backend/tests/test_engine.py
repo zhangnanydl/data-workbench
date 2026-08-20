@@ -430,12 +430,19 @@ def test_input_preview_is_before_selected_transform(tmp_path):
 
 def test_project_round_trip(tmp_path):
     bridge = DesktopBridge(tmp_path)
-    saved = bridge.save_project(demo_pipeline(), "测试项目")
+    pipeline = demo_pipeline()
+    pipeline["nodes"][1]["label"] = "仅保留 HTTP 请求"
+    pipeline["nodes"][1]["position"] = {"x": 420, "y": 180}
+    pipeline["edges"][0]["sourceHandle"] = "matched"
+    saved = bridge.save_project(pipeline, "测试项目")
     assert saved["ok"] is True
     listed = bridge.list_projects()
     assert listed[0]["name"] == "测试项目"
     loaded = bridge.load_project(saved["path"])
     assert loaded["data"]["nodes"][0]["pluginId"] == "input.demo"
+    assert loaded["data"]["nodes"][1]["label"] == "仅保留 HTTP 请求"
+    assert loaded["data"]["nodes"][1]["position"] == {"x": 420, "y": 180}
+    assert loaded["data"]["edges"][0]["sourceHandle"] == "matched"
 
 
 def test_storage_config_defaults_to_local_and_persists(tmp_path, monkeypatch):
@@ -656,3 +663,94 @@ def test_desktop_worker_executes_preview_out_of_process(tmp_path):
         assert result["data"]["rows"][0]["手机号"] == "138****8000"
     finally:
         bridge.close()
+
+
+def test_validation_router_writes_complete_valid_and_invalid_branches(tmp_path):
+    valid_path = tmp_path / "valid.csv"
+    invalid_path = tmp_path / "invalid.csv"
+    pipeline = {
+        "nodes": [
+            {"id": "source", "pluginId": "input.demo", "config": {}},
+            {"id": "validate", "pluginId": "transform.data_validation", "config": {
+                "rules": [{"field": "状态码", "rule": "max", "value": 200, "message": "状态码大于200"}],
+                "status_field": "校验通过", "reason_field": "校验问题",
+            }},
+            {"id": "router", "pluginId": "transform.invalid_row_routing", "config": {"status_field": "校验通过", "route": "all"}},
+            {"id": "valid-output", "pluginId": "output.file", "config": {"path": str(valid_path), "format": "csv"}},
+            {"id": "invalid-output", "pluginId": "output.file", "config": {"path": str(invalid_path), "format": "csv"}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "source", "target": "validate"},
+            {"id": "e2", "source": "validate", "target": "router"},
+            {"id": "e3", "source": "router", "sourceHandle": "valid", "target": "valid-output"},
+            {"id": "e4", "source": "router", "sourceHandle": "invalid", "target": "invalid-output"},
+        ],
+    }
+
+    PipelineEngine().execute(pipeline, preview=False, project_dir=tmp_path)
+
+    valid = pl.read_csv(valid_path)
+    invalid = pl.read_csv(invalid_path)
+    assert valid.height == 5
+    assert invalid.height == 1
+    assert invalid["状态码"].to_list() == [404]
+    assert invalid["校验问题"].to_list() == ["状态码大于200"]
+
+
+def test_condition_branch_writes_matched_and_unmatched_outputs(tmp_path):
+    matched_path = tmp_path / "http-ok.csv"
+    unmatched_path = tmp_path / "http-other.csv"
+    pipeline = {
+        "nodes": [
+            {"id": "source", "pluginId": "input.demo", "config": {}},
+            {"id": "branch", "pluginId": "transform.conditional_branch", "config": {
+                "field": "状态码", "operator": "equals", "value": 200,
+                "true_label": "成功", "false_label": "其他", "output_name": "请求结果", "keep": "all",
+            }},
+            {"id": "matched-output", "pluginId": "output.file", "config": {"path": str(matched_path), "format": "csv"}},
+            {"id": "unmatched-output", "pluginId": "output.file", "config": {"path": str(unmatched_path), "format": "csv"}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "source", "target": "branch"},
+            {"id": "e2", "source": "branch", "sourceHandle": "matched", "target": "matched-output"},
+            {"id": "e3", "source": "branch", "sourceHandle": "unmatched", "target": "unmatched-output"},
+        ],
+    }
+
+    PipelineEngine().execute(pipeline, preview=False, project_dir=tmp_path)
+
+    assert pl.read_csv(matched_path).height == 5
+    unmatched = pl.read_csv(unmatched_path)
+    assert unmatched.height == 1
+    assert unmatched["状态码"].to_list() == [404]
+
+
+def test_condition_branch_contains_ip_feeds_downstream_transform_and_input_preview(tmp_path):
+    pipeline = {
+        "nodes": [
+            {"id": "source", "pluginId": "input.demo", "config": {}},
+            {"id": "branch", "pluginId": "transform.conditional_branch", "config": {
+                "field": "IP地址", "operator": "contains", "value": "183",
+                "true_label": "命中", "false_label": "未命中", "output_name": "IP筛选结果", "keep": "all",
+            }},
+            {"id": "downstream", "pluginId": "transform.select_columns", "config": {
+                "columns": ["IP地址", "状态码"], "mode": "keep",
+            }},
+        ],
+        "edges": [
+            {"id": "e1", "source": "source", "target": "branch"},
+            {"id": "e2", "source": "branch", "sourceHandle": "matched", "target": "downstream"},
+        ],
+    }
+
+    result = PipelineEngine().execute(pipeline, target_node_id="downstream")
+    assert result["stats"]["rowCount"] == 2
+    assert result["rows"] == [
+        {"IP地址": "183.232.231.174", "状态码": 200},
+        {"IP地址": "183.232.231.174", "状态码": 200},
+    ]
+
+    input_result = DesktopBridge(tmp_path).preview_node_input(pipeline, "downstream")
+    assert input_result["ok"] is True, input_result
+    assert input_result["data"]["stats"]["rowCount"] == 2
+    assert {row["IP地址"] for row in input_result["data"]["rows"]} == {"183.232.231.174"}

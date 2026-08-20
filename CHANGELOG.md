@@ -1,7 +1,11 @@
 # 更新日志
 
-## 未发布
+## [0.3.0] - 2026-08-20
 
+- 修复条件分支单出口连接后，后继节点因内部输入预览错误要求两路数据而无法读取字段和数据；“IP 包含指定文本”等条件现在可继续传给任意处理或输出节点。
+- 支持为每个节点设置自定义名称；名称修改可撤销，并随节点配置、位置、连线和分支出口一起保存到本地或 MySQL 项目存储。
+- 条件分支升级为“满足/不满足”双出口，支持分别筛选、继续处理和完整导出，旧项目仍可使用原来的输出范围配置。
+- 异常行分流升级为真正的正常/异常双出口，连线保存分支标识，执行引擎按出口向多个文件或数据库输出完整数据，并兼容旧项目的单出口配置。
 - 优化左侧模块库：增加输入/处理/输出快速筛选、均衡二级分类、名称与说明双层展示、搜索结果计数及 `/` 快捷搜索。
 - 模块搜索使用延迟过滤并仅渲染展开的分类列表，降低大量插件下的输入延迟和滚动开销。
 - 新增安全自定义表达式、多条件筛选和可视化 CASE WHEN 计算列。
@@ -16,8 +20,6 @@
 - 内置节点由 52 个增加到 63 个，并补充完整回归测试。
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 的结构，并计划在稳定后遵循语义化版本。
-
-## [Unreleased]
 
 ## [0.2.0] - 2026-08-20
 
@@ -70,6 +72,7 @@
 - 上游字段未传播导致列选择无法勾选；
 - 多次运行导致界面长时间未响应的问题。
 
-[Unreleased]: https://github.com/zhangnanydl/data-workbench/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/zhangnanydl/data-workbench/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/zhangnanydl/data-workbench/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/zhangnanydl/data-workbench/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/zhangnanydl/data-workbench/releases/tag/v0.1.0

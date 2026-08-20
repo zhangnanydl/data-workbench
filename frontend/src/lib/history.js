@@ -14,8 +14,8 @@ export function createCanvasSnapshot(nodes, edges, selectedNodeId = null) {
 
 export function canvasSnapshotKey(snapshot) {
   return JSON.stringify({
-    nodes: snapshot.nodes.map((node) => ({ id: node.id, position: node.position, config: node.data?.config })),
-    edges: snapshot.edges.map(({ id, source, target }) => ({ id, source, target })),
+    nodes: snapshot.nodes.map((node) => ({ id: node.id, position: node.position, label: node.data?.label, config: node.data?.config })),
+    edges: snapshot.edges.map(({ id, source, target, sourceHandle, targetHandle }) => ({ id, source, target, sourceHandle: sourceHandle || null, targetHandle: targetHandle || null })),
   });
 }
 

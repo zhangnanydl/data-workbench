@@ -50,6 +50,15 @@ class PipelineEngine:
         for edge in edges:
             if edge.get("source") not in node_map or edge.get("target") not in node_map:
                 errors.append("连线引用了不存在的节点")
+                continue
+            try:
+                source_plugin = self.registry.get(node_map[edge["source"]]["pluginId"])
+            except KeyError:
+                continue
+            output_id = edge.get("sourceHandle")
+            available_ports = {str(item.get("id")) for item in source_plugin.definition.output_ports}
+            if output_id and available_ports and output_id not in available_ports:
+                errors.append(f"连线引用了不存在的输出分支: {output_id}")
         try:
             self._topological_order(nodes, edges)
         except PipelineValidationError as exc:
@@ -72,8 +81,10 @@ class PipelineEngine:
         edges = pipeline.get("edges", [])
         node_map = {node["id"]: node for node in nodes}
         parents: dict[str, list[str]] = defaultdict(list)
+        incoming_edges: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for edge in edges:
             parents[edge["target"]].append(edge["source"])
+            incoming_edges[edge["target"]].append(edge)
 
         required = self._required_nodes(target_node_id, parents) if target_node_id else set(node_map)
         scoped_pipeline = {
@@ -118,9 +129,18 @@ class PipelineEngine:
                     "currentNode": node.get("label") or plugin.definition.name, "pluginId": node["pluginId"],
                     "sourceRows": source_rows, "elapsedSeconds": round(perf_counter() - started_at, 2),
                 })
-                input_frames = [frames[parent_id] for parent_id in parents[node_id]]
-                parent_keys = [cache_keys[parent_id] for parent_id in parents[node_id]]
-                parent_labels = [node_map[parent_id].get("label") or node_map[parent_id].get("pluginId") for parent_id in parents[node_id]]
+                node_input_edges = incoming_edges[node_id]
+                input_frames: list[pl.DataFrame] = []
+                parent_keys: list[str] = []
+                parent_labels: list[str] = []
+                for edge in node_input_edges:
+                    parent_id = edge["source"]
+                    parent_node = node_map[parent_id]
+                    parent_plugin = self.registry.get(parent_node["pluginId"])
+                    output_id = edge.get("sourceHandle")
+                    input_frames.append(parent_plugin.select_output(frames[parent_id], parent_node.get("config", {}), output_id))
+                    parent_keys.append(f"{cache_keys[parent_id]}:{output_id or 'default'}")
+                    parent_labels.append(f"{parent_node.get('label') or parent_node.get('pluginId')}:{output_id or 'default'}")
                 # Preview pagination is a presentation concern. Cached node frames
                 # must contain the complete result so downstream nodes never run on
                 # just the visible page.

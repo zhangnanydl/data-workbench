@@ -246,14 +246,14 @@ class DesktopBridge:
 
     def preview_node_input(self, pipeline: dict[str, Any], target_node_id: str, limit: int = 100, page: int = 1) -> dict[str, Any]:
         incoming = [edge for edge in pipeline.get("edges", []) if edge.get("target") == target_node_id]
-        if len(incoming) <= 1:
+        if len(incoming) <= 1 and not (incoming and incoming[0].get("sourceHandle")):
             target = incoming[0]["source"] if incoming else target_node_id
             return self.preview_pipeline(pipeline, target, limit, page)
         preview_id = "__multi_input_preview__"
         preview_pipeline = {
             **pipeline,
-            "nodes": [*pipeline.get("nodes", []), {"id": preview_id, "pluginId": "transform.merge_inputs", "label": "输入数据", "config": {"mode": "union", "add_source": True, "source_field": "数据来源"}}],
-            "edges": [*pipeline.get("edges", []), *[{"id": f"__input_{index}", "source": edge["source"], "target": preview_id} for index, edge in enumerate(incoming)]],
+            "nodes": [*pipeline.get("nodes", []), {"id": preview_id, "pluginId": "transform.merge_inputs", "label": "输入数据", "config": {"mode": "union", "add_source": len(incoming) > 1, "source_field": "数据来源"}}],
+            "edges": [*pipeline.get("edges", []), *[{"id": f"__input_{index}", "source": edge["source"], "sourceHandle": edge.get("sourceHandle"), "target": preview_id} for index, edge in enumerate(incoming)]],
         }
         return self.preview_pipeline(preview_pipeline, preview_id, limit, page)
 

@@ -60,14 +60,14 @@ export const fallbackPlugins = [
   ["transform.hash_digest", "SHA 哈希摘要", "transform", "数据处理", "生成 SHA-1、SHA-256 或 SHA-512 摘要", "lock", "#9333ea", [{ key: "fields", label: "选择字段", field_type: "columns", required: true }, { key: "algorithm", label: "算法", field_type: "select", default: "sha256", options: [{ label: "SHA-256（推荐）", value: "sha256" }, { label: "SHA-512", value: "sha512" }, { label: "SHA-1", value: "sha1" }] }, { key: "salt", label: "盐值（可选）", default: "" }, { key: "suffix", label: "结果列后缀", default: "_哈希" }]],
   ["transform.calculated_column", "计算列", "transform", "数据处理", "复制、固定值、拼接或文本长度生成新列", "text-t", "#2563eb", [{ key: "operation", label: "计算方式", field_type: "select", default: "copy", options: [{ label: "复制字段", value: "copy" }, { label: "填写固定值", value: "constant" }, { label: "拼接两个字段", value: "concat" }, { label: "文本长度", value: "length" }] }, { key: "source_field", label: "来源字段", field_type: "column" }, { key: "second_field", label: "第二个字段", field_type: "column" }, { key: "constant", label: "固定值", default: "" }, { key: "separator", label: "拼接分隔符", default: "" }, { key: "output_name", label: "新列名称", default: "计算结果", required: true }]],
   ["transform.numeric_calculation", "数值计算", "transform", "数据处理", "执行加减乘除、取整及常用数学运算", "arrows-left-right", "#0ea5e9", [{ key: "source_field", label: "数值字段", field_type: "column", required: true }, { key: "operation", label: "运算", field_type: "select", default: "add", options: [{ label: "加", value: "add" }, { label: "减", value: "subtract" }, { label: "乘", value: "multiply" }, { label: "除", value: "divide" }, { label: "取余", value: "modulo" }, { label: "次方", value: "power" }, { label: "四舍五入", value: "round" }, { label: "绝对值", value: "abs" }, { label: "平方根", value: "sqrt" }, { label: "自然对数", value: "log" }] }, { key: "operand_mode", label: "第二个数来源", field_type: "select", default: "constant", options: [{ label: "固定数值", value: "constant" }, { label: "另一个字段", value: "field" }] }, { key: "operand", label: "固定数值", field_type: "number", default: 0 }, { key: "operand_field", label: "另一个字段", field_type: "column" }, { key: "output_name", label: "结果列名称", default: "数值结果", required: true }]],
-  ["transform.conditional_branch", "条件分支", "transform", "数据处理", "按条件添加分支标记或筛选对应数据", "flow", "#8b5cf6", [{ key: "field", label: "判断字段", field_type: "column", required: true }, { key: "operator", label: "判断条件", field_type: "select", default: "equals", options: [{ label: "等于", value: "equals" }, { label: "不等于", value: "not_equals" }, { label: "包含", value: "contains" }, { label: "不包含", value: "not_contains" }, { label: "大于", value: "greater" }, { label: "大于等于", value: "greater_equal" }, { label: "小于", value: "less" }, { label: "小于等于", value: "less_equal" }, { label: "匹配正则", value: "regex" }, { label: "为空", value: "is_null" }, { label: "非空", value: "not_null" }] }, { key: "value", label: "比较值", default: "" }, { key: "true_label", label: "满足条件标记", default: "是" }, { key: "false_label", label: "不满足条件标记", default: "否" }, { key: "output_name", label: "分支列名称", default: "条件分支", required: true }, { key: "keep", label: "输出范围", field_type: "select", default: "all", options: [{ label: "保留全部并添加标记", value: "all" }, { label: "只保留满足条件", value: "matched" }, { label: "只保留不满足条件", value: "unmatched" }] }]],
+  ["transform.conditional_branch", "条件分支", "transform", "数据处理", "按条件拆成满足和不满足两个数据流，也可添加结果标记", "flow", "#8b5cf6", [{ key: "field", label: "判断字段", field_type: "column", required: true }, { key: "operator", label: "判断条件", field_type: "select", default: "equals", options: [{ label: "等于", value: "equals" }, { label: "不等于", value: "not_equals" }, { label: "包含", value: "contains" }, { label: "不包含", value: "not_contains" }, { label: "大于", value: "greater" }, { label: "大于等于", value: "greater_equal" }, { label: "小于", value: "less" }, { label: "小于等于", value: "less_equal" }, { label: "匹配正则", value: "regex" }, { label: "为空", value: "is_null" }, { label: "非空", value: "not_null" }] }, { key: "value", label: "比较值", default: "" }, { key: "true_label", label: "满足条件标记", default: "是" }, { key: "false_label", label: "不满足条件标记", default: "否" }, { key: "output_name", label: "分支列名称", default: "条件分支", required: true }, { key: "keep", label: "旧项目默认出口", field_type: "select", default: "all", options: [{ label: "保留全部并添加标记", value: "all" }, { label: "只保留满足条件", value: "matched" }, { label: "只保留不满足条件", value: "unmatched" }], help_text: "仅用于没有分支标记的旧连线；新流程请使用节点右侧的满足/不满足出口" }]],
   ["transform.pivot", "透视表", "transform", "数据处理", "把字段取值展开成多列并汇总", "columns", "#d97706", [{ key: "index", label: "保留为行的字段", field_type: "columns", required: true }, { key: "on", label: "展开为列的字段", field_type: "column", required: true }, { key: "values", label: "统计值字段", field_type: "column", required: true }, { key: "aggregate", label: "汇总方式", field_type: "select", default: "sum", options: [{ label: "求和", value: "sum" }, { label: "计数", value: "len" }, { label: "平均值", value: "mean" }, { label: "最小值", value: "min" }, { label: "最大值", value: "max" }, { label: "第一条", value: "first" }] }, { key: "fill_value", label: "空结果填充值", default: "" }]],
   ["transform.unpivot", "逆透视", "transform", "数据处理", "把多个字段收拢为字段名和值两列", "rows", "#ea580c", [{ key: "index", label: "保持不变的字段", field_type: "columns", default: [] }, { key: "values", label: "需要收拢的字段", field_type: "columns", required: true }, { key: "variable_name", label: "原字段名列", default: "字段" }, { key: "value_name", label: "原字段值列", default: "值" }]],
   ["transform.transpose", "行列转换", "transform", "数据处理", "交换数据的行和列", "arrows-left-right", "#0d9488", [{ key: "header_field", label: "作为新列名的字段（可选）", field_type: "column" }, { key: "header_name", label: "原字段名列名称", default: "原字段" }]],
   ["transform.set_operations", "集合运算", "transform", "数据处理", "对两个上游执行并集、交集或差集", "squares-four", "#4f46e5", [{ key: "operation", label: "集合运算", field_type: "select", default: "union", options: [{ label: "并集", value: "union" }, { label: "交集", value: "intersection" }, { label: "第一路减第二路", value: "difference" }, { label: "对称差集", value: "symmetric_difference" }] }, { key: "fields", label: "比较字段（留空使用共同字段）", field_type: "columns", default: [] }]],
   ["transform.window_statistics", "窗口统计", "transform", "数据处理", "排名、累计、移动平均及前后记录", "history", "#7c3aed", [{ key: "partition_by", label: "分组字段（可选）", field_type: "columns", default: [] }, { key: "order_by", label: "排序字段", field_type: "column", required: true }, { key: "value_field", label: "统计字段", field_type: "column" }, { key: "operation", label: "统计方式", field_type: "select", default: "row_number", options: [{ label: "组内行号", value: "row_number" }, { label: "排名", value: "rank" }, { label: "密集排名", value: "dense_rank" }, { label: "累计求和", value: "cumulative_sum" }, { label: "移动平均", value: "moving_mean" }, { label: "上一条值", value: "lag" }, { label: "下一条值", value: "lead" }] }, { key: "window_size", label: "移动窗口/偏移行数", field_type: "number", default: 3 }, { key: "output_name", label: "结果列名称", default: "窗口结果", required: true }]],
   ["transform.data_validation", "数据校验", "transform", "数据处理", "使用多条可视化规则校验字段", "check-circle", "#16a34a", [{ key: "rules", label: "校验规则", field_type: "validation_rules", default: [{ field: "", rule: "not_null", value: "", message: "不能为空" }], required: true }, { key: "status_field", label: "校验状态列", default: "校验通过" }, { key: "reason_field", label: "问题原因列", default: "校验问题" }]],
-  ["transform.invalid_row_routing", "异常行分流", "transform", "数据处理", "根据数据校验状态保留正常或异常数据", "funnel", "#dc2626", [{ key: "status_field", label: "校验状态字段", field_type: "column", required: true }, { key: "route", label: "输出数据", field_type: "select", default: "invalid", options: [{ label: "仅异常行", value: "invalid" }, { label: "仅正常行", value: "valid" }, { label: "全部数据", value: "all" }] }]],
+  ["transform.invalid_row_routing", "异常行分流", "transform", "数据处理", "把数据校验结果拆成正常流和异常流，可分别连接不同输出", "funnel", "#dc2626", [{ key: "status_field", label: "校验状态字段", field_type: "column", required: true }, { key: "route", label: "旧项目默认出口", field_type: "select", default: "all", options: [{ label: "全部数据（推荐）", value: "all" }, { label: "仅异常行", value: "invalid" }, { label: "仅正常行", value: "valid" }], help_text: "仅用于没有分支标记的旧连线；新连线请直接使用节点右侧的正常/异常出口" }]],
   ["transform.batch_spill", "分批落盘", "transform", "数据处理", "正式运行时把完整中间结果分批写入文件", "file-arrow-down", "#64748b", [{ key: "path", label: "文件名前缀", field_type: "save_file", required: true }, { key: "format", label: "文件格式", field_type: "select", default: "csv", options: [{ label: "CSV", value: "csv" }, { label: "JSON Lines", value: "jsonl" }, { label: "Parquet", value: "parquet" }] }, { key: "batch_size", label: "每个文件行数", field_type: "number", default: 100000 }]],
   ["transform.custom_expression", "自定义表达式", "transform", "数据处理", "使用安全表达式组合字段生成新列", "text-t", "#2563eb", [{ key: "expression", label: "计算表达式", field_type: "textarea", required: true, placeholder: "例如：[金额] * [数量] - [优惠]", help_text: "支持四则运算和常用函数，不执行任意代码" }, { key: "output_name", label: "结果列名称", default: "表达式结果", required: true }]],
   ["transform.multi_filter", "多条件筛选", "transform", "数据处理", "使用多条条件按且/或关系筛选数据", "funnel", "#14b8a6", [{ key: "rules", label: "筛选条件", field_type: "condition_rules", default: [{ field: "", operator: "equals", value: "" }], required: true }, { key: "logic", label: "条件关系", field_type: "select", default: "all", options: [{ label: "全部满足（且）", value: "all" }, { label: "任一满足（或）", value: "any" }] }, { key: "mode", label: "处理方式", field_type: "select", default: "keep", options: [{ label: "保留满足条件的数据", value: "keep" }, { label: "排除满足条件的数据", value: "drop" }] }]],
@@ -97,6 +97,11 @@ export const fallbackPlugins = [
   ["output.pcap_index", "PCAP 索引完整导出", "output", "数据输出", "从磁盘索引分批导出全部数据包", "file-arrow-down", "#4f46e5", [{ key: "path", label: "输出路径", field_type: "save_file", required: true }, { key: "delimiter", label: "分隔符", default: "," }]],
 ].map(([id, name, kind, group, description, icon, color, config_fields]) => ({
   id, name, kind, group, description, icon, color, config_fields,
+  output_ports: id === "transform.invalid_row_routing"
+    ? [{ id: "valid", label: "正常", color: "#16a34a" }, { id: "invalid", label: "异常", color: "#dc2626" }]
+    : id === "transform.conditional_branch"
+      ? [{ id: "matched", label: "满足", color: "#16a34a" }, { id: "unmatched", label: "不满足", color: "#ea580c" }]
+      : [],
   category: {
     "transform.filter": "筛选与字段", "transform.select_columns": "筛选与字段",
     "transform.mapping": "字段转换", "transform.rename_column": "字段转换", "transform.split_column": "字段转换", "transform.convert": "字段转换",
@@ -122,6 +127,32 @@ const desktopApi = () => window.pywebview?.api;
 const browserStorageConfig = () => JSON.parse(localStorage.getItem("data-workbench-settings:storage") || '{"mode":"local","mysql":{}}');
 const mockRunJobs = new Map();
 
+function mockCondition(row, config = {}) {
+  const value = row[config.field];
+  const expected = config.value ?? "";
+  const text = String(value ?? "");
+  const comparison = String(expected);
+  if (config.operator === "contains") return text.includes(comparison);
+  if (config.operator === "not_contains") return !text.includes(comparison);
+  if (config.operator === "not_equals") return text !== comparison;
+  if (config.operator === "greater") return Number(value) > Number(expected);
+  if (config.operator === "greater_equal") return Number(value) >= Number(expected);
+  if (config.operator === "less") return Number(value) < Number(expected);
+  if (config.operator === "less_equal") return Number(value) <= Number(expected);
+  if (config.operator === "regex") {
+    try { return new RegExp(comparison).test(text); } catch { return false; }
+  }
+  if (config.operator === "is_null") return value == null;
+  if (config.operator === "not_null") return value != null;
+  return text === comparison;
+}
+
+function mockBranchRows(rows, sourceNode, sourceHandle) {
+  if (!sourceHandle || sourceNode?.pluginId !== "transform.conditional_branch") return rows;
+  const matched = sourceHandle === "matched";
+  return rows.filter((row) => mockCondition(row, sourceNode.config || {}) === matched);
+}
+
 function mockPreview(pipeline, targetNodeId, limit = 100, page = 1) {
   const node = pipeline.nodes.find((item) => item.id === targetNodeId);
   let rows = demoRows.map((row) => ({ ...row }));
@@ -134,8 +165,15 @@ function mockPreview(pipeline, targetNodeId, limit = 100, page = 1) {
   if (node?.pluginId !== "input.pcap") {
     for (const current of pipeline.nodes) {
       const config = current.config || {};
+      const branchEdge = pipeline.edges.find((edge) => edge.target === current.id && edge.sourceHandle);
+      if (branchEdge) rows = mockBranchRows(rows, pipeline.nodes.find((item) => item.id === branchEdge.source), branchEdge.sourceHandle);
       if (current.pluginId === "transform.filter" && config.field) {
         rows = rows.filter((row) => config.operator !== "equals" || String(row[config.field]) === String(config.value));
+      } else if (current.pluginId === "transform.conditional_branch" && config.field) {
+        const outputName = config.output_name || "条件分支";
+        rows = rows.map((row) => ({ ...row, [outputName]: mockCondition(row, config) ? (config.true_label || "是") : (config.false_label || "否") }));
+      } else if (current.pluginId === "transform.select_columns" && Array.isArray(config.columns) && config.columns.length) {
+        rows = rows.map((row) => Object.fromEntries(config.columns.filter((field) => Object.hasOwn(row, field)).map((field) => [field, row[field]])));
       } else if (current.pluginId === "transform.mapping" && config.source_field && config.target_field) {
         const valueMap = valueMapToObject(config.value_map);
         rows = rows.map((row) => { const original = row[config.source_field]; const mapped = Object.hasOwn(valueMap, String(original)) ? valueMap[String(original)] : original; const next = { ...row, [config.target_field]: mapped }; if (config.target_field !== config.source_field) delete next[config.source_field]; return next; });
@@ -172,6 +210,14 @@ export const bridge = {
   async previewNodeInput(pipeline, targetNodeId, limit = 100, page = 1) {
     if (desktopApi()) return desktopApi().preview_node_input(pipeline, targetNodeId, limit, page);
     const incoming = pipeline.edges.filter((edge) => edge.target === targetNodeId);
+    if (incoming.length === 1 && incoming[0].sourceHandle) {
+      const edge = incoming[0];
+      const source = pipeline.nodes.find((node) => node.id === edge.source);
+      const result = mockPreview(pipeline, edge.source, limit, page);
+      const rows = mockBranchRows(result.data.rows, source, edge.sourceHandle);
+      const columns = Object.keys(rows[0] || {}).map((key) => ({ key, label: key, type: typeof rows[0]?.[key] === "number" ? "Int64" : "String" }));
+      return { ok: true, data: { ...result.data, rows, columns, stats: { ...result.data.stats, rowCount: rows.length, previewCount: rows.length, columnCount: columns.length, nodeId: targetNodeId } } };
+    }
     if (incoming.length > 1) {
       const rows = incoming.flatMap((edge) => {
         const source = pipeline.nodes.find((node) => node.id === edge.source);

@@ -142,15 +142,19 @@ class NumericCalculationPlugin(DataPlugin):
 class ConditionalBranchPlugin(DataPlugin):
     definition = PluginDefinition(
         id="transform.conditional_branch", name="条件分支", kind=PluginKind.TRANSFORM, group="数据处理",
-        description="按条件标记不同分支，并可只保留满足或不满足条件的数据", icon="flow", color="#8b5cf6", category="流程控制",
+        description="按条件拆成满足和不满足两个数据流，也可添加结果标记", icon="flow", color="#8b5cf6", category="流程控制",
+        output_ports=(
+            {"id": "matched", "label": "满足", "color": "#16a34a"},
+            {"id": "unmatched", "label": "不满足", "color": "#ea580c"},
+        ),
         config_fields=(
             ConfigField("field", "判断字段", "column", required=True), ConfigField("operator", "判断条件", "select", default="equals", options=CONDITION_OPTIONS),
             ConfigField("value", "比较值", default=""), ConfigField("true_label", "满足条件标记", default="是"),
             ConfigField("false_label", "不满足条件标记", default="否"), ConfigField("output_name", "分支列名称", default="条件分支", required=True),
-            ConfigField("keep", "输出范围", "select", default="all", options=[
+            ConfigField("keep", "旧项目默认出口", "select", default="all", options=[
                 {"label": "保留全部并添加标记", "value": "all"}, {"label": "只保留满足条件", "value": "matched"},
                 {"label": "只保留不满足条件", "value": "unmatched"},
-            ]),
+            ], help_text="仅用于没有分支标记的旧连线；新流程请使用节点右侧的满足/不满足出口"),
         ),
     )
 
@@ -159,8 +163,15 @@ class ConditionalBranchPlugin(DataPlugin):
         field = str(config.get("field", "")); _require_columns(frame, [field])
         condition = _condition(field, str(config.get("operator", "equals")), config.get("value", "")).fill_null(False)
         result = frame.with_columns(pl.when(condition).then(pl.lit(str(config.get("true_label", "是")))).otherwise(pl.lit(str(config.get("false_label", "否")))).alias(str(config.get("output_name", "条件分支"))))
-        keep = str(config.get("keep", "all"))
-        return result.filter(condition if keep == "matched" else ~condition) if keep != "all" else result
+        return result
+
+    def select_output(self, frame: pl.DataFrame, config: dict[str, Any], output_id: str | None) -> pl.DataFrame:
+        route = str(output_id or config.get("keep", "all"))
+        if route == "all": return frame
+        if route not in {"matched", "unmatched"}: raise ValueError(f"不支持的条件分支: {route}")
+        field = str(config.get("field", "")); _require_columns(frame, [field])
+        condition = _condition(field, str(config.get("operator", "equals")), config.get("value", "")).fill_null(False)
+        return frame.filter(condition if route == "matched" else ~condition)
 
 
 class PivotPlugin(DataPlugin):
@@ -333,18 +344,28 @@ class DataValidationPlugin(DataPlugin):
 class InvalidRowRoutingPlugin(DataPlugin):
     definition = PluginDefinition(
         id="transform.invalid_row_routing", name="异常行分流", kind=PluginKind.TRANSFORM, group="数据处理",
-        description="根据数据校验状态保留正常行或异常行", icon="funnel", color="#dc2626", category="数据质量",
+        description="把数据校验结果拆成正常流和异常流，可分别连接不同输出", icon="funnel", color="#dc2626", category="数据质量",
+        output_ports=(
+            {"id": "valid", "label": "正常", "color": "#16a34a"},
+            {"id": "invalid", "label": "异常", "color": "#dc2626"},
+        ),
         config_fields=(
-            ConfigField("status_field", "校验状态字段", "column", required=True), ConfigField("route", "输出数据", "select", default="invalid", options=[
-                {"label": "仅异常行", "value": "invalid"}, {"label": "仅正常行", "value": "valid"}, {"label": "全部数据", "value": "all"},
-            ]),
+            ConfigField("status_field", "校验状态字段", "column", required=True),
+            ConfigField("route", "旧项目默认出口", "select", default="all", options=[
+                {"label": "全部数据（推荐）", "value": "all"}, {"label": "仅异常行", "value": "invalid"}, {"label": "仅正常行", "value": "valid"},
+            ], help_text="仅用于没有分支标记的旧连线；新连线请直接使用节点右侧的正常/异常出口"),
         ),
     )
 
     def execute(self, inputs: list[pl.DataFrame], config: dict[str, Any], context: ExecutionContext) -> pl.DataFrame:
         frame = self.require_input(inputs); field = str(config.get("status_field", "")); _require_columns(frame, [field])
-        route = str(config.get("route", "invalid"))
+        return frame
+
+    def select_output(self, frame: pl.DataFrame, config: dict[str, Any], output_id: str | None) -> pl.DataFrame:
+        field = str(config.get("status_field", "")); _require_columns(frame, [field])
+        route = str(output_id or config.get("route", "all"))
         if route == "all": return frame
+        if route not in {"valid", "invalid"}: raise ValueError(f"不支持的异常行分支: {route}")
         valid = pl.col(field).cast(pl.Boolean, strict=False).fill_null(False)
         return frame.filter(valid if route == "valid" else ~valid)
 

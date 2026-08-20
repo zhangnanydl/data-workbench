@@ -26,7 +26,7 @@ export function upstreamSchemaKey(pipeline, targetNodeId) {
     .sort((left, right) => left.id.localeCompare(right.id));
   const edges = pipeline.edges
     .filter((edge) => required.has(edge.source) && required.has(edge.target))
-    .map(({ source, target }) => ({ source, target }))
-    .sort((left, right) => `${left.source}:${left.target}`.localeCompare(`${right.source}:${right.target}`));
+    .map(({ source, target, sourceHandle, targetHandle }) => ({ source, target, sourceHandle: sourceHandle || null, targetHandle: targetHandle || null }))
+    .sort((left, right) => `${left.source}:${left.sourceHandle}:${left.target}:${left.targetHandle}`.localeCompare(`${right.source}:${right.sourceHandle}:${right.target}:${right.targetHandle}`));
   return JSON.stringify({ targetNodeId, nodes, edges });
 }

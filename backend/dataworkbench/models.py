@@ -35,6 +35,7 @@ class PluginDefinition:
     config_fields: tuple[ConfigField, ...] = ()
     accepts_multiple: bool = False
     category: str = ""
+    output_ports: tuple[dict[str, Any], ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)

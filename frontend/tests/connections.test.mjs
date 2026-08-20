@@ -16,6 +16,14 @@ test("dragging from a target handle reverses the inferred edge direction", () =>
   });
 });
 
+test("node-body drop preserves a named branch output handle", () => {
+  assert.deepEqual(connectionFromNodeDrop({ nodeId: "branch", handleType: "source", handleId: "matched" }, "output"), {
+    source: "branch",
+    target: "output",
+    sourceHandle: "matched",
+  });
+});
+
 test("node-body connection ignores missing targets and self connections", () => {
   assert.equal(connectionFromNodeDrop({ nodeId: "node", handleType: "source" }, "node"), null);
   assert.equal(connectionFromNodeDrop({ nodeId: "node", handleType: "source" }, ""), null);

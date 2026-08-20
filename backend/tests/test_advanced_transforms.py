@@ -33,11 +33,15 @@ def test_calculated_column_numeric_calculation_and_condition_branch():
     }, CONTEXT)
     assert numeric["换算分"].to_list() == [100.0, 75.0]
 
-    branched = ConditionalBranchPlugin().execute([numeric], {
+    branch_config = {
         "field": "换算分", "operator": "greater_equal", "value": 80, "true_label": "通过", "false_label": "复核",
         "output_name": "结果", "keep": "all",
-    }, CONTEXT)
+    }
+    branch_plugin = ConditionalBranchPlugin()
+    branched = branch_plugin.execute([numeric], branch_config, CONTEXT)
     assert branched["结果"].to_list() == ["通过", "复核"]
+    assert branch_plugin.select_output(branched, branch_config, "matched")["姓名"].to_list() == ["张三"]
+    assert branch_plugin.select_output(branched, branch_config, "unmatched")["姓名"].to_list() == ["李四"]
 
 
 def test_pivot_unpivot_and_transpose():
@@ -78,7 +82,11 @@ def test_data_validation_and_invalid_routing():
         ], "status_field": "校验通过", "reason_field": "校验问题",
     }, CONTEXT)
     assert validated["校验通过"].to_list() == [True, False, False]
-    invalid = InvalidRowRoutingPlugin().execute([validated], {"status_field": "校验通过", "route": "invalid"}, CONTEXT)
+    router = InvalidRowRoutingPlugin()
+    routed = router.execute([validated], {"status_field": "校验通过", "route": "all"}, CONTEXT)
+    valid = router.select_output(routed, {"status_field": "校验通过"}, "valid")
+    invalid = router.select_output(routed, {"status_field": "校验通过"}, "invalid")
+    assert valid.height == 1
     assert invalid.height == 2
     assert set(invalid["校验问题"].to_list()) == {"账号不能为空", "分数不能小于0"}
 

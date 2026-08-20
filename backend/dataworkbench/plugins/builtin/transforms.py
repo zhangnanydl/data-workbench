@@ -260,14 +260,18 @@ class MergeInputsPlugin(DataPlugin):
     )
 
     def execute(self, inputs: list[pl.DataFrame], config: dict[str, Any], context: ExecutionContext) -> pl.DataFrame:
-        if len(inputs) < 2:
-            raise ValueError("多路数据合并至少需要连接两个上游节点")
+        if not inputs:
+            raise ValueError("多路数据合并至少需要连接一个上游节点")
         mode = str(config.get("mode", "union"))
         labels = context.variables.get("direct_parent_labels") or [f"输入{index + 1}" for index in range(len(inputs))]
         frames = inputs
         if bool(config.get("add_source", False)):
             source_field = str(config.get("source_field", "数据来源") or "数据来源").strip()
             frames = [frame.with_columns(pl.lit(str(labels[index])).alias(source_field)) for index, frame in enumerate(inputs)]
+        # Input preview uses this plugin as an internal pass-through so a named
+        # branch handle (for example "matched") is preserved for one parent.
+        if len(frames) == 1:
+            return frames[0]
         if mode == "union":
             return pl.concat(frames, how="diagonal_relaxed")
         if mode == "intersection":

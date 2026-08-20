@@ -27,6 +27,10 @@ class DataPlugin(ABC):
                 errors.append(f"{item.label}不能为空")
         return errors
 
+    def select_output(self, frame: pl.DataFrame, config: dict[str, Any], output_id: str | None) -> pl.DataFrame:
+        """Return the frame exposed by one output port; ordinary plugins have one implicit output."""
+        return frame
+
     @staticmethod
     def require_input(inputs: list[pl.DataFrame]) -> pl.DataFrame:
         if not inputs:
